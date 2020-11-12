@@ -205,4 +205,10 @@ fabric.properties
 trainings/
 .idea/
 
-#Exclude training/test datafolder
+
+# Training and Test Data
+X_test.csv
+sample.csv
+X_train.csv
+y_train.csv
+
