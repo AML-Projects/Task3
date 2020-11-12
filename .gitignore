@@ -204,3 +204,5 @@ fabric.properties
 # Trainings folder
 trainings/
 .idea/
+
+#Exclude training/test datafolder
