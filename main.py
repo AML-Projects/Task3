@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # Sample Config: --handin true --configuration D:\GitHub\AML\Task1\configurations\test.jsonc
     parser = argparse.ArgumentParser(
         description="Executes a training session.")
-    parser.add_argument('--configuration', default='./configurations/e1.jsonc',
+    parser.add_argument('--configuration', default='./configurations/default.jsonc',
                         type=str, help="Environment and training configuration.")
     parser.add_argument('--workingdir', default=os.getcwd(), type=str,
                         help="Working directory (default: current directory).")
