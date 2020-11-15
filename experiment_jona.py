@@ -1,131 +1,56 @@
-import warnings
-
-import biosppy as biosppy
-import heartpy as hp
-import matplotlib.pyplot as plt
-import neurokit2 as nk
+import numpy as np
 import pandas as pd
+import xgboost as xgboost
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import RobustScaler
+from sklearn.svm import SVC
 
-# 300Hz sample rate
-SAMPLE_RATE = 300
-
-
-def analysis_with_biosppy_lib(sample):
-    ts, filtered, rpeaks, templates_ts, templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
-        signal=sample, sampling_rate=SAMPLE_RATE, show=True)
-
-    # we can extract rpeaks with different methods
-    rpeaks_es = biosppy.signals.ecg.engzee_segmenter(sample, sampling_rate=SAMPLE_RATE)[0]
-    rpeaks_hs = biosppy.signals.ecg.hamilton_segmenter(sample.values, sampling_rate=SAMPLE_RATE)[0]
-    rpeaks_cs = biosppy.ecg.christov_segmenter(sample, sampling_rate=SAMPLE_RATE)[0]
-    rpeaks_gs = biosppy.ecg.gamboa_segmenter(sample, sampling_rate=SAMPLE_RATE)[0]
-    rpeaks_ssfs = biosppy.ecg.ssf_segmenter(sample, sampling_rate=SAMPLE_RATE)[0]
-
-    # get heartbeat templates
-    heart_beat_templates = biosppy.signals.ecg.extract_heartbeats(signal=sample,
-                                                                  rpeaks=rpeaks,
-                                                                  sampling_rate=SAMPLE_RATE)
-
-    # heartbeat templates -> Problem they have different length from one sample to another sample!
-    print(templates.shape)
-    if False:
-        plt.plot(ts, filtered)
-        plt.title("class " + str(label))
-        plt.grid()
-        plt.show()
-
-    pass
-
-
-def analysis_with_neurokit2(sample):
-    # we have to reset the index, otherwise ecg_process returns unwanted results
-    sample = sample.reset_index(drop=True)
-    ecg_df, r_peaks = nk.ecg_process(ecg_signal=sample, sampling_rate=SAMPLE_RATE)
-
-    # binary series describing where the peaks are
-    ecg_df["ECG_P_Peaks"]
-    ecg_df["ECG_Q_Peaks"]
-    ecg_df["ECG_R_Peaks"]
-    ecg_df["ECG_S_Peaks"]
-    ecg_df["ECG_T_Peaks"]
-    # plot
-    nk.ecg_plot(ecg_signals=ecg_df, sampling_rate=SAMPLE_RATE, show_type='full')
-    plt.show()
-
-    # we can also just get the rpeaks
-    r_peaks2 = nk.ecg_findpeaks(ecg_cleaned=ecg_df["ECG_Clean"], sampling_rate=SAMPLE_RATE, show=True)
-
-    # we can get the mean heart rate and a lot of HRV (heart rate variability) metrics
-    ecg_info = nk.ecg_intervalrelated(data=ecg_df, sampling_rate=SAMPLE_RATE)
-
-    # get heartbeats where the index of the dataframes equals the timestamp
-    # the heartbeat length is different for every sample!
-    ecg_heartbeats = nk.ecg_segment(ecg_cleaned=ecg_df["ECG_Clean"], sampling_rate=SAMPLE_RATE, show=True)
-    plt.show()
-
-    pass
-
-
-def analysis_with_heartpy(sample):
-    # resetting the index speeds up hp. plotter by a lot
-    sample = sample.reset_index(drop=True)
-    try:
-        working_data, measures = hp.process(hrdata=sample, sample_rate=SAMPLE_RATE)
-        hp.plotter(working_data, measures)
-
-        # function to flip signal
-        hrdata = hp.flip_signal(sample)
-        working_data, measures = hp.process(hrdata=hrdata, sample_rate=SAMPLE_RATE)
-        hp.plotter(working_data, measures)
-
-        # enhances peak amplitude relative to rest of signal
-        hrdata = hp.enhance_peaks(hrdata=sample)
-        working_data, measures = hp.process(hrdata=hrdata, sample_rate=SAMPLE_RATE)
-        hp.plotter(working_data, measures)
-
-        # enhances ecg peaks by using synthetic QRS peaks
-        hrdata = hp.enhance_ecg_peaks(hrdata=sample, sample_rate=SAMPLE_RATE)
-        working_data, measures = hp.process(hrdata=hrdata, sample_rate=SAMPLE_RATE)
-        hp.plotter(working_data, measures)
-    except:
-        print("Opps why ?!")
-
+from logcreator.logcreator import Logcreator
 
 if __name__ == '__main__':
-    # only read top n-rows for faster manual analysis
-    n_rows = 20
-    x_train = pd.read_csv("./data/X_train.csv", index_col=0, nrows=n_rows)
-    y_train = pd.read_csv("./data/y_train.csv", index_col=0, nrows=n_rows)
-    x_test = pd.read_csv("./data/X_test.csv", index_col=0, nrows=n_rows)
+    x_train_mean_heart_rate_data = pd.read_csv("./data/extracted_features/x_train_mean-heart-rate.csv", index_col=0)
+    x_train_variance_data = pd.read_csv("./data/extracted_features/x_train_variance.csv", index_col=0)
+    x_train_mean_data = pd.read_csv("./data/extracted_features/x_train_mean.csv", index_col=0)
 
-    warnings.filterwarnings("ignore")
-    interactive = False
-    if interactive:
-        # pip install PyQt5
-        import matplotlib as mpl
+    x_train_data = pd.concat([x_train_mean_heart_rate_data, x_train_variance_data, x_train_mean_data], axis=1)
 
-        mpl.use("Qt5Agg")
+    x_test_mean_heart_rate_data = pd.read_csv("./data/extracted_features/x_test_mean-heart-rate.csv", index_col=0)
+    x_test_variance_data = pd.read_csv("./data/extracted_features/x_test_variance.csv", index_col=0)
+    x_test_mean_data = pd.read_csv("./data/extracted_features/x_test_mean.csv", index_col=0)
 
-    for i in range(0, x_train.shape[0]):
-        sample = x_train.iloc[i]
+    x_test_handin = pd.concat([x_test_mean_heart_rate_data, x_test_variance_data, x_test_mean_data], axis=1)
+    handin_idx = x_test_handin.index
 
-        # shorten series to non nan values
-        last_non_nan_idx = pd.Series.last_valid_index(sample)
-        sample = sample[:last_non_nan_idx]
+    # fill NaN with zero
+    x_train_data = x_train_data.fillna(0)
+    x_test_handin = x_test_handin.fillna(0)
 
-        # Reset the index because it causes unwanted effects in the library functions!
-        sample = sample.reset_index(drop=True)
+    y_train_data = pd.read_csv("./data/y_train.csv", index_col=0)
 
-        # get the label of the current sample
-        label = y_train.iloc[i][0]
-        print("\nclass:", label)
+    x_train, x_test, y_train, y_test = train_test_split(x_train_data, y_train_data,
+                                                        test_size=0.2,
+                                                        stratify=y_train_data,
+                                                        random_state=41)
 
-        analysis_with_biosppy_lib(sample)
+    scaler = RobustScaler()
 
-        analysis_with_neurokit2(sample)
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.transform(x_test)
+    x_test_handin = scaler.transform(x_test_handin)
 
-        # analysis_with_heartpy(sample)
+    clf = xgboost.XGBClassifier(objective='multi:softmax', max_depth=4, subsample=0.8,
+                                num_class=4,
+                                n_jobs=-1,
+                                random_state=41)
 
-        print("\n")
+    clf.fit(x_train, y_train)
 
-    pass
+    y_pred_train = clf.predict(x_train)
+    y_pred_test = clf.predict(x_test)
+    y_pred_test_handin = clf.predict(x_test_handin)
+
+    Logcreator.info("f1 score on train split", f1_score(y_true=y_train, y_pred=y_pred_train, average='micro'))
+    Logcreator.info("f1 score on test split", f1_score(y_true=y_test, y_pred=y_pred_test, average='micro'))
+
+    pd.DataFrame(y_pred_test_handin, columns=['y'], index=handin_idx).to_csv("./trainings/submission.csv")
