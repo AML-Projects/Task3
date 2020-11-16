@@ -4,17 +4,23 @@ import time
 import biosppy as biosppy
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot
 
-# 300Hz sample rate
 from logcreator.logcreator import Logcreator
 
+# 300Hz sample rate
 SAMPLE_RATE = 300
 
 
-def extract_mean_variance(sample):
+def extract_mean_variance(sample, show=False):
     """
-    Extracts the mean and variance heart beat of a given sample
-    :return: mean_heart_beat, variance, heart_rate
+    Extracts the mean and variance heart beat, plus a lot more of a given sample.
+
+    :return: mean_hb_graph, var_hb_graph,
+             mean_hb_rate, var_hb_rate,
+             max_hb_graph, min_hb_graph,
+             perc25_hb_graph, perc50_hb_graph, perc75_hb_graph
+             diff_mean
     """
 
     # for now we just use default biosppy processing pipeline
@@ -31,8 +37,28 @@ def extract_mean_variance(sample):
     mean_hb_graph = np.mean(heartbeat_templates, axis=0)
     var_hb_graph = np.var(heartbeat_templates, axis=0)
     mean_hb_rate = np.mean(heart_rate, axis=0)
+    var_hb_rate = np.var(heart_rate, axis=0)
+    max_hb_graph = np.amax(heartbeat_templates, axis=0)
+    perc25_hb_graph = np.percentile(heartbeat_templates, q=25, axis=0)
+    perc50_hb_graph = np.percentile(heartbeat_templates, q=50, axis=0)
+    perc75_hb_graph = np.percentile(heartbeat_templates, q=75, axis=0)
+    min_hb_graph = np.min(heartbeat_templates, axis=0)
+    diff_mean = np.mean(np.diff(heartbeat_templates, axis=1), axis=0)
 
-    return mean_hb_graph, var_hb_graph, mean_hb_rate
+    if show:
+        pyplot.plot(range(0, diff_mean.shape[0]), diff_mean)
+        pyplot.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
+        pyplot.plot(range(0, perc25_hb_graph.shape[0]), min_hb_graph)
+        pyplot.plot(range(0, perc25_hb_graph.shape[0]), perc25_hb_graph)
+        pyplot.plot(range(0, perc50_hb_graph.shape[0]), perc50_hb_graph)
+        pyplot.plot(range(0, perc75_hb_graph.shape[0]), perc75_hb_graph)
+        pyplot.show()
+
+    return mean_hb_graph, var_hb_graph, \
+           mean_hb_rate, var_hb_rate, \
+           max_hb_graph, min_hb_graph, \
+           perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, \
+           diff_mean
 
 
 def extract_features(x, x_name, extract_function, extracted_column_names):
@@ -51,21 +77,21 @@ def extract_features(x, x_name, extract_function, extracted_column_names):
     # save index for later when saving the features
     index = x.index
 
+    # Reset the index because it causes unwanted effects in the library functions!
+    x = x.reset_index(drop=True)
+
     feature_list = []
     value_error_count = 0
     for i in range(0, x.shape[0]):
         if (i % int(x.shape[0] / 10)) == 0:
             elapsed_time = time.time() - start_time
-            print(int(i / int(x.shape[0])*100), "% - samples processed:", i, "in %d [s]." % elapsed_time)
+            print(int(i / int(x.shape[0]) * 100), "% - samples processed:", i, "in %d [s]." % elapsed_time)
 
         sample = x.iloc[i]
 
         # shorten series to non nan values
         last_non_nan_idx = pd.Series.last_valid_index(sample)
         sample = sample[:last_non_nan_idx]
-
-        # Reset the index because it causes unwanted effects in the library functions!
-        sample = sample.reset_index(drop=True)
 
         # sample to array
         sample = sample.values
@@ -130,7 +156,11 @@ if __name__ == '__main__':
     # extract features
 
     # extracting mean, variance and mean heart rate
-    extracted_feature_names = ["mean", "variance", "mean-heart-rate"]
+    extracted_feature_names = ["mean", "variance",
+                               "mean_heart_rate", "variance_heart_rate",
+                               "max_hb_graph", "min_hb_graph",
+                               "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
+                               "diff_mean"]
     # took 387s
     extract_features(x_train, "x_train", extract_mean_variance, extracted_feature_names)
     # took 256s
