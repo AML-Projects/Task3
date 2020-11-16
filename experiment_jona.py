@@ -1,25 +1,32 @@
-import numpy as np
 import pandas as pd
 import xgboost as xgboost
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
-from sklearn.svm import SVC
 
 from logcreator.logcreator import Logcreator
 
+
+def get_data(data):
+    feature_list = []
+
+    feature_names = ["mean", "variance", "mean_heart_rate", "variance_heart_rate",
+                     "max_hb_graph", "min_hb_graph",
+                     "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph"]  # , "diff_mean"]
+
+    for name in feature_names:
+        x_feature = pd.read_csv("./data/extracted_features/x_" + data + "_" + name + ".csv", index_col=0)
+        feature_list.append(x_feature)
+
+    x_data = pd.concat(feature_list, axis=1)
+
+    return x_data
+
+
 if __name__ == '__main__':
-    x_train_mean_heart_rate_data = pd.read_csv("./data/extracted_features/x_train_mean-heart-rate.csv", index_col=0)
-    x_train_variance_data = pd.read_csv("./data/extracted_features/x_train_variance.csv", index_col=0)
-    x_train_mean_data = pd.read_csv("./data/extracted_features/x_train_mean.csv", index_col=0)
+    x_train_data = get_data("train")
+    x_test_handin = get_data("test")
 
-    x_train_data = pd.concat([x_train_mean_heart_rate_data, x_train_variance_data, x_train_mean_data], axis=1)
-
-    x_test_mean_heart_rate_data = pd.read_csv("./data/extracted_features/x_test_mean-heart-rate.csv", index_col=0)
-    x_test_variance_data = pd.read_csv("./data/extracted_features/x_test_variance.csv", index_col=0)
-    x_test_mean_data = pd.read_csv("./data/extracted_features/x_test_mean.csv", index_col=0)
-
-    x_test_handin = pd.concat([x_test_mean_heart_rate_data, x_test_variance_data, x_test_mean_data], axis=1)
     handin_idx = x_test_handin.index
 
     # fill NaN with zero
@@ -39,8 +46,13 @@ if __name__ == '__main__':
     x_test = scaler.transform(x_test)
     x_test_handin = scaler.transform(x_test_handin)
 
-    clf = xgboost.XGBClassifier(objective='multi:softmax', max_depth=4, subsample=0.8,
-                                num_class=4,
+    clf = xgboost.XGBClassifier(objective='multi:softmax',
+                                n_estimators=100,
+                                max_depth=6,
+                                subsample=1,
+                                colsample_bytree=1,
+                                colsample_bylevel=1,
+                                num_class=3,
                                 n_jobs=-1,
                                 random_state=41)
 
