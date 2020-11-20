@@ -121,14 +121,14 @@ def extract_mean_variance(sample, show=False):
     mean_hb_rate = np.mean(heart_rate, axis=0)
     var_hb_rate = np.var(heart_rate, axis=0)
     max_hb_graph = np.amax(heartbeat_templates, axis=0)
+    perc10_hb_graph = np.percentile(heartbeat_templates, q=10, axis=0)
     perc25_hb_graph = np.percentile(heartbeat_templates, q=25, axis=0)
     perc50_hb_graph = np.percentile(heartbeat_templates, q=50, axis=0)
     perc75_hb_graph = np.percentile(heartbeat_templates, q=75, axis=0)
+    perc90_hb_graph = np.percentile(heartbeat_templates, q=90, axis=0)
     min_hb_graph = np.min(heartbeat_templates, axis=0)
-    diff_mean = np.mean(np.diff(heartbeat_templates, axis=1), axis=0)
 
     if show:
-        plt.plot(range(0, diff_mean.shape[0]), diff_mean)
         plt.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
         plt.plot(range(0, perc25_hb_graph.shape[0]), min_hb_graph)
         plt.plot(range(0, perc25_hb_graph.shape[0]), perc25_hb_graph)
@@ -139,17 +139,17 @@ def extract_mean_variance(sample, show=False):
     return mean_hb_graph, var_hb_graph, \
            mean_hb_rate, var_hb_rate, \
            max_hb_graph, min_hb_graph, \
-           perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, \
-           diff_mean
+           perc10_hb_graph, perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, perc90_hb_graph
 
 
-def extract_nni(sample):
-    rpeaks = get_r_peaks(sample, 'wfdb')
+def extract_nni(sample, r_peaks=None):
+    if r_peaks is None:
+        r_peaks = get_r_peaks(sample, 'wfdb')
 
-    if rpeaks.shape[0] == 1:
-        nni = rpeaks
+    if r_peaks.shape[0] == 1:
+        nni = r_peaks
     else:
-        nni = pyhrv.tools.nn_intervals(rpeaks=rpeaks)
+        nni = pyhrv.tools.nn_intervals(rpeaks=r_peaks)
 
     nni_mean = np.mean(nni, axis=0)
     nni_var = np.var(nni, axis=0)
@@ -157,9 +157,10 @@ def extract_nni(sample):
     return nni_mean, nni_var
 
 
-def extract_hrv_nk2(sample):
+def extract_hrv_nk2(sample, r_peaks=None):
     try:
-        r_peaks = get_r_peaks(sample, 'biosppy')
+        if r_peaks is None:
+            r_peaks = get_r_peaks(sample, 'biosppy')
 
         r_peaks_dict = {"ECG_R_Peaks": r_peaks}
 
@@ -174,6 +175,14 @@ def extract_hrv_nk2(sample):
         return [np.zeros(52)]
 
     return [ecg_info.values.flatten()]
+
+
+def extract_hrv_and_nni(sample):
+    r_peaks = get_r_peaks(sample, 'biosppy')
+    res1, res2 = extract_nni(sample, r_peaks)
+    res3 = extract_hrv_nk2(sample, r_peaks)
+
+    return res1, res2, res3
 
 
 def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
@@ -237,7 +246,6 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
             file_name = x_name + "_" + str(column.name) + "_skip_first_" + str(skip_first) + ".csv"
         else:
             file_name = x_name + "_" + str(column.name) + ".csv"
-        exit()
         extracted.to_csv(os.path.join("./data/extracted_features", file_name), index=True)
 
     total_elapsed_time = time.time() - start_time
@@ -247,6 +255,9 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
 if __name__ == '__main__':
     # set n_rows to a integer for testing, to read only the top n-rows
     n_rows = None
+    # set number of data points to skip
+    skip_first = 300
+    skip_last = 300
 
     Logcreator.info("\nReading input files")
 
@@ -273,25 +284,26 @@ if __name__ == '__main__':
 
     # ----------------------------------------------------------------
     # extract features
-
-    extract_features(x_train, "x_train", extract_hrv_nk2, ["biosppy_hrv"])
-    extract_features(x_test, "x_test", extract_hrv_nk2, ["biosppy_hrv"])
-
-    # exit()
-
-    extracted_feature_names = ["nni_mean", "nni_var"]
-    extract_features(x_train, "x_train", extract_nni, extracted_feature_names)
-    extract_features(x_test, "x_test", extract_nni, extracted_feature_names)
-
+    extracted_feature_names = ["nni_mean", "nni_var", "biosppy_hrv"]
+    extract_features(x_train, "x_train", extract_hrv_and_nni, extracted_feature_names,
+                     skip_first=skip_first,
+                     skip_last=skip_last)
+    extract_features(x_test, "x_test", extract_hrv_and_nni, extracted_feature_names,
+                     skip_first=skip_first,
+                     skip_last=skip_last)
     # exit()
 
     # extracting mean, variance and mean heart rate
     extracted_feature_names = ["mean", "variance",
                                "mean_heart_rate", "variance_heart_rate",
                                "max_hb_graph", "min_hb_graph",
-                               "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
-                               "diff_mean"]
+                               "perc10_hb_graph", "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
+                               "perc90_hb_graph"]
     # took 387s
-    extract_features(x_train, "x_train", extract_mean_variance, extracted_feature_names)
+    extract_features(x_train, "x_train", extract_mean_variance, extracted_feature_names,
+                     skip_first=skip_first,
+                     skip_last=skip_last)
     # took 256s
-    extract_features(x_test, "x_test", extract_mean_variance, extracted_feature_names)
+    extract_features(x_test, "x_test", extract_mean_variance, extracted_feature_names,
+                     skip_first=skip_first,
+                     skip_last=skip_last)
