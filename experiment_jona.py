@@ -9,7 +9,7 @@ from sklearn.preprocessing import RobustScaler
 from logcreator.logcreator import Logcreator
 
 
-def get_data(data):
+def get_data(data, skip_first=0):
     feature_list = []
 
     feature_names = ["mean", "variance", "mean_heart_rate", "variance_heart_rate",
@@ -18,7 +18,12 @@ def get_data(data):
                      "nni_mean", "nni_var", "biosppy_hrv"]  # , "diff_mean"]
 
     for name in feature_names:
-        x_feature = pd.read_csv("./data/extracted_features/x_" + data + "_" + name + ".csv", index_col=0)
+        if skip_first == 0:
+            x_feature = pd.read_csv("./data/extracted_features/x_" + data + "_" + name + ".csv", index_col=0)
+        else:
+            x_feature = pd.read_csv(
+                "./data/extracted_features/x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv",
+                index_col=0)
         feature_list.append(x_feature)
 
     x_data = pd.concat(feature_list, axis=1)
