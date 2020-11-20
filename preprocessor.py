@@ -182,7 +182,7 @@ def extract_hrv_and_nni(sample):
     res1, res2 = extract_nni(sample, r_peaks)
     res3 = extract_hrv_nk2(sample, r_peaks)
 
-    return res1, res2, res3
+    return res1, res2, np.asarray(res3).flatten()
 
 
 def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
