@@ -96,14 +96,8 @@ def extract_features(x, x_name, extract_function, extracted_column_names):
         # sample to array
         sample = sample.values
 
-        try:
-            extracted_values = extract_function(sample)
-            feature_list.append(extracted_values)
-        except ValueError as error:
-            value_error_count = value_error_count + 1
-
-    if value_error_count > 0:
-        Logcreator.warn("Number of samples ignored:", value_error_count)
+        extracted_values = extract_function(sample)
+        feature_list.append(extracted_values)
 
     data = pd.DataFrame(feature_list)
     data.columns = extracted_column_names
