@@ -2,14 +2,96 @@ import os
 import time
 
 import biosppy as biosppy
+import neurokit2 as nk2
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot
+import pyhrv
+import wfdb
+from matplotlib import pyplot as plt
+from pyhrv import tools
+from wfdb import processing
 
 from logcreator.logcreator import Logcreator
 
 # 300Hz sample rate
 SAMPLE_RATE = 300
+
+
+def peaks_hr(sig, peak_inds, fs, title, figsize=(20, 10), saveto=None):
+    """"
+    Plot a signal with its peaks and heart rate
+    https://github.com/MIT-LCP/wfdb-python/blob/master/demo.ipynb
+    """
+    # Calculate heart rate
+    hrs = processing.hr.compute_hr(sig_len=sig.shape[0], qrs_inds=peak_inds, fs=fs)
+
+    N = sig.shape[0]
+
+    fig, ax_left = plt.subplots(figsize=figsize)
+    ax_right = ax_left.twinx()
+
+    ax_left.plot(sig, color='#3979f0', label='Signal')
+    ax_left.plot(peak_inds, sig[peak_inds], 'rx', marker='x',
+                 color='#8b0000', label='Peak', markersize=12)
+    ax_right.plot(np.arange(N), hrs, label='Heart rate', color='m', linewidth=2)
+
+    ax_left.set_title(title)
+
+    ax_left.set_xlabel('Time (ms)')
+    ax_left.set_ylabel('ECG (mV)', color='#3979f0')
+    ax_right.set_ylabel('Heart rate (bpm)', color='m')
+    # Make the y-axis label, ticks and tick labels match the line color.
+    ax_left.tick_params('y', colors='#3979f0')
+    ax_right.tick_params('y', colors='m')
+    if saveto is not None:
+        plt.savefig(saveto, dpi=600)
+    plt.show()
+
+
+def get_r_peaks(sample, library='biosppy'):
+    if library == 'biosppy':
+        ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
+            signal=sample, sampling_rate=SAMPLE_RATE, show=False, )
+
+    elif library == 'neurokit':
+        ecg_cleaned = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
+
+        instant_peaks, r_peaks, = nk2.ecg_peaks(
+            ecg_cleaned=ecg_cleaned, sampling_rate=SAMPLE_RATE, method='rodrigues2020', correct_artifacts=True
+        )
+
+        r_peaks = np.asarray(r_peaks["ECG_R_Peaks"])
+
+    elif library == 'wfdb':
+        xqrs = wfdb.processing.XQRS(sig=sample, fs=SAMPLE_RATE)
+        xqrs.detect(sampfrom=400, sampto=-300, learn=True, verbose=0)
+        qrs_inds = xqrs.qrs_inds
+        # Plot results
+        # peaks_hr(sig=sample, peak_inds=qrs_inds, fs=SAMPLE_RATE, title="R peaks")
+
+        if qrs_inds.shape[0] == 0:
+            return np.ndarray([])
+
+        # Correct the peaks shifting them to local maxima
+        min_bpm = 20
+        max_bpm = 230
+        # min_gap = record.fs * 60 / min_bpm
+        # Use the maximum possible bpm as the search radius
+        search_radius = int(SAMPLE_RATE * 60 / max_bpm)
+        corrected_peak_inds = processing.peaks.correct_peaks(sample,
+                                                             peak_inds=qrs_inds,
+                                                             search_radius=search_radius,
+                                                             smooth_window_size=150)
+
+        r_peaks = corrected_peak_inds
+
+    else:
+        raise AssertionError("Library does not exist:", library)
+
+    # sometimes two peaks are the same
+    r_peaks = np.unique(r_peaks)
+
+    return r_peaks
 
 
 def extract_mean_variance(sample, show=False):
