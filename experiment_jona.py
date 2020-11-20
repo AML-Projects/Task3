@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 import xgboost as xgboost
-from sklearn.metrics import f1_score
-from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score, confusion_matrix
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import RobustScaler
 
 from logcreator.logcreator import Logcreator
@@ -12,7 +14,8 @@ def get_data(data):
 
     feature_names = ["mean", "variance", "mean_heart_rate", "variance_heart_rate",
                      "max_hb_graph", "min_hb_graph",
-                     "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph"]  # , "diff_mean"]
+                     "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
+                     "nni_mean", "nni_var", "biosppy_hrv"]  # , "diff_mean"]
 
     for name in feature_names:
         x_feature = pd.read_csv("./data/extracted_features/x_" + data + "_" + name + ".csv", index_col=0)
@@ -27,11 +30,21 @@ if __name__ == '__main__':
     x_train_data = get_data("train")
     x_test_handin = get_data("test")
 
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', None)
+
     handin_idx = x_test_handin.index
 
     # fill NaN with zero
     x_train_data = x_train_data.fillna(0)
     x_test_handin = x_test_handin.fillna(0)
+
+    x_train_data[x_train_data == np.inf] = 0
+    x_test_handin[x_test_handin == np.inf] = 0
+    x_train_data[x_train_data == -np.inf] = 0
+    x_test_handin[x_test_handin == -np.inf] = 0
 
     y_train_data = pd.read_csv("./data/y_train.csv", index_col=0)
 
