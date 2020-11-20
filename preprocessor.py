@@ -64,7 +64,7 @@ def get_r_peaks(sample, library='biosppy'):
 
     elif library == 'wfdb':
         xqrs = wfdb.processing.XQRS(sig=sample, fs=SAMPLE_RATE)
-        xqrs.detect(sampfrom=400, sampto=-300, learn=True, verbose=0)
+        xqrs.detect(sampfrom=0, sampto='end', learn=True, verbose=0)
         qrs_inds = xqrs.qrs_inds
         # Plot results
         # peaks_hr(sig=sample, peak_inds=qrs_inds, fs=SAMPLE_RATE, title="R peaks")
@@ -176,7 +176,7 @@ def extract_hrv_nk2(sample):
     return [ecg_info.values.flatten()]
 
 
-def extract_features(x, x_name, extract_function, extracted_column_names):
+def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
     """
     General function to extract features and save them individually to a file.
 
@@ -184,6 +184,8 @@ def extract_features(x, x_name, extract_function, extracted_column_names):
     :param x_name: the name of the input data
     :param extract_function: function that extracts features for one sample of x
     :param extracted_column_names: the names of the extracted features
+    :param skip_last: skips the first n data points in every sample
+    :param skip_first: skips the last n data points in every sample
     :return:
     """
     start_time = time.time()
@@ -211,6 +213,9 @@ def extract_features(x, x_name, extract_function, extracted_column_names):
         # sample to array
         sample = sample.values
 
+        # skip first and last n data points
+        sample = sample[skip_first:-skip_last]
+
         extracted_values = extract_function(sample)
         feature_list.append(extracted_values)
 
@@ -228,7 +233,12 @@ def extract_features(x, x_name, extract_function, extracted_column_names):
             extracted.columns = {column_name}
 
         extracted.set_index(index, inplace=True)
-        extracted.to_csv(os.path.join("./data/extracted_features", x_name + "_" + column.name + ".csv"), index=True)
+        if skip_first > 0:
+            file_name = x_name + "_" + str(column.name) + "_skip_first_" + str(skip_first) + ".csv"
+        else:
+            file_name = x_name + "_" + str(column.name) + ".csv"
+        exit()
+        extracted.to_csv(os.path.join("./data/extracted_features", file_name), index=True)
 
     total_elapsed_time = time.time() - start_time
     Logcreator.info("\nFeature extraction finished in %d [s]." % total_elapsed_time)
