@@ -128,19 +128,52 @@ def extract_mean_variance(sample, show=False):
     diff_mean = np.mean(np.diff(heartbeat_templates, axis=1), axis=0)
 
     if show:
-        pyplot.plot(range(0, diff_mean.shape[0]), diff_mean)
-        pyplot.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
-        pyplot.plot(range(0, perc25_hb_graph.shape[0]), min_hb_graph)
-        pyplot.plot(range(0, perc25_hb_graph.shape[0]), perc25_hb_graph)
-        pyplot.plot(range(0, perc50_hb_graph.shape[0]), perc50_hb_graph)
-        pyplot.plot(range(0, perc75_hb_graph.shape[0]), perc75_hb_graph)
-        pyplot.show()
+        plt.plot(range(0, diff_mean.shape[0]), diff_mean)
+        plt.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
+        plt.plot(range(0, perc25_hb_graph.shape[0]), min_hb_graph)
+        plt.plot(range(0, perc25_hb_graph.shape[0]), perc25_hb_graph)
+        plt.plot(range(0, perc50_hb_graph.shape[0]), perc50_hb_graph)
+        plt.plot(range(0, perc75_hb_graph.shape[0]), perc75_hb_graph)
+        plt.show()
 
     return mean_hb_graph, var_hb_graph, \
            mean_hb_rate, var_hb_rate, \
            max_hb_graph, min_hb_graph, \
            perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, \
            diff_mean
+
+
+def extract_nni(sample):
+    rpeaks = get_r_peaks(sample, 'wfdb')
+
+    if rpeaks.shape[0] == 1:
+        nni = rpeaks
+    else:
+        nni = pyhrv.tools.nn_intervals(rpeaks=rpeaks)
+
+    nni_mean = np.mean(nni, axis=0)
+    nni_var = np.var(nni, axis=0)
+
+    return nni_mean, nni_var
+
+
+def extract_hrv_nk2(sample):
+    try:
+        r_peaks = get_r_peaks(sample, 'biosppy')
+
+        r_peaks_dict = {"ECG_R_Peaks": r_peaks}
+
+        ecg_info = nk2.hrv(peaks=r_peaks_dict, sampling_rate=SAMPLE_RATE)
+
+    except (ValueError, IndexError) as e:
+        # probably not enough r_peaks or probably class 3
+        print("ValueError:", str(e))
+        nk2.ecg_findpeaks(ecg_cleaned=sample, sampling_rate=SAMPLE_RATE, show=True)
+        plt.show()
+
+        return [np.zeros(52)]
+
+    return [ecg_info.values.flatten()]
 
 
 def extract_features(x, x_name, extract_function, extracted_column_names):
@@ -230,6 +263,17 @@ if __name__ == '__main__':
 
     # ----------------------------------------------------------------
     # extract features
+
+    extract_features(x_train, "x_train", extract_hrv_nk2, ["biosppy_hrv"])
+    extract_features(x_test, "x_test", extract_hrv_nk2, ["biosppy_hrv"])
+
+    # exit()
+
+    extracted_feature_names = ["nni_mean", "nni_var"]
+    extract_features(x_train, "x_train", extract_nni, extracted_feature_names)
+    extract_features(x_test, "x_test", extract_nni, extracted_feature_names)
+
+    # exit()
 
     # extracting mean, variance and mean heart rate
     extracted_feature_names = ["mean", "variance",
