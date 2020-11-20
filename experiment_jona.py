@@ -63,7 +63,6 @@ if __name__ == '__main__':
 
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
-    x_test_handin = scaler.transform(x_test_handin)
 
     model = xgboost.XGBClassifier(objective='multi:softmax',
                                   n_estimators=100,
@@ -111,6 +110,8 @@ if __name__ == '__main__':
                                  n_jobs=-1,
                                  random_state=41)
 
+        clf.fit(x_train, y_train.values.flatten())
+
         Logcreator.info("Best estimator from GridSearch: {}".format(clf.best_estimator_))
         Logcreator.info("Best alpha found: {}".format(clf.best_params_))
         Logcreator.info("Best training-score with mse loss: {}".format(clf.best_score_))
@@ -120,10 +121,10 @@ if __name__ == '__main__':
         col = [c for c in results.columns if 'split' not in c and 'time' not in c and 'params' not in c]
         Logcreator.info(results[col])
 
+        clf = clf.best_estimator_
     else:
         clf = model
-
-    clf.fit(x_train, y_train.values.flatten())
+        clf.fit(x_train, y_train.values.flatten())
 
     # ---------------------------------------------------------------------------------------------------------
     # results
@@ -137,7 +138,12 @@ if __name__ == '__main__':
     Logcreator.info("\n", confusion_matrix(y_true=y_test, y_pred=y_pred_test))
 
     # ---------------------------------------------------------------------------------------------------------
-    # refit on everything
-    clf.fit(x_train_data, y_train_data)
+    # submission: refit on everything
+    x_train_data = scaler.fit_transform(x_train_data)
+    x_test_handin = scaler.transform(x_test_handin)
+
+    clf.fit(x_train_data, y_train_data.values.flatten())
+
     y_pred_test_handin = clf.predict(x_test_handin)
+
     pd.DataFrame(y_pred_test_handin, columns=['y'], index=handin_idx).to_csv("./trainings/submission.csv")
