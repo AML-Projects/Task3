@@ -370,9 +370,14 @@ if __name__ == '__main__':
                      skip_first=skip_first,
                      skip_last=skip_last)
 
+    # extracting many things
     extracted_feature_names = ["qrs_complex_mean", "qrs_complex_var", "pr_interval_mean", "pr_interval_var",
                                "pr_segment_mean", "pr_segment_var", "qt_interval_mean", "pt_interval_var",
                                "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
                                "q_peak_amp_mean", "q_peak_amp_var"]
-    extract_features(x_train.iloc, "x_train", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
+    # took 2801s
+    extract_features(x_train, "x_train", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
+                     skip_last=skip_last)
+    # took 1942s
+    extract_features(x_test, "x_test", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
                      skip_last=skip_last)
