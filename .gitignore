@@ -211,4 +211,4 @@ X_test.csv
 sample.csv
 X_train.csv
 y_train.csv
-
+data/extracted_features/
