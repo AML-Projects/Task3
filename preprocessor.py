@@ -127,6 +127,8 @@ def extract_mean_variance(sample, show=False):
     perc75_hb_graph = np.percentile(heartbeat_templates, q=75, axis=0)
     perc90_hb_graph = np.percentile(heartbeat_templates, q=90, axis=0)
     min_hb_graph = np.min(heartbeat_templates, axis=0)
+    mean_rpeak_amp = np.mean(sample[rpeaks, ], axis=0)
+    var_rpeak_amp = np.var(sample[rpeaks, ], axis=0)
 
     if show:
         plt.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
@@ -139,7 +141,8 @@ def extract_mean_variance(sample, show=False):
     return mean_hb_graph, var_hb_graph, \
            mean_hb_rate, var_hb_rate, \
            max_hb_graph, min_hb_graph, \
-           perc10_hb_graph, perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, perc90_hb_graph
+           perc10_hb_graph, perc25_hb_graph, perc50_hb_graph, perc75_hb_graph, perc90_hb_graph, \
+           mean_rpeak_amp, var_rpeak_amp
 
 
 def extract_nni(sample, r_peaks=None):
@@ -184,6 +187,63 @@ def extract_hrv_and_nni(sample):
 
     return res1, res2, np.asarray(res3).flatten()
 
+def exctract_qrspt(sample):
+    r_peaks = get_r_peaks(sample, 'biosppy')
+    try:
+        signal_dwt, waves_dwt = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="dwt", show=False, show_type='all')
+        signal_peak, waves_peak = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="peak", show=False, show_type='all')
+
+        t_peaks = np.array(waves_dwt['ECG_T_Peaks'])
+        t_onsets = np.array(waves_dwt['ECG_T_Onsets'])
+        t_offsets = np.array(waves_dwt['ECG_T_Offsets'])
+        p_peaks = np.array(waves_dwt['ECG_P_Peaks'])
+        p_onsets = np.array(waves_dwt['ECG_P_Onsets'])
+        p_offsets = np.array(waves_dwt['ECG_P_Offsets'])
+        r_onsets = np.array(waves_dwt['ECG_R_Onsets'])
+        r_offsets = np.array(waves_dwt['ECG_R_Offsets'])
+        q_peak = np.array(waves_peak['ECG_Q_Peaks'])
+        s_peak = np.array(waves_peak['ECG_S_Peaks'])
+        qrs_complex = r_offsets - r_onsets
+        pr_interval = r_onsets - p_onsets
+        pr_segment = r_onsets - p_offsets
+        qt_interval = t_offsets - r_onsets
+        st_segment = t_onsets - r_offsets
+        qrs_duration = s_peak - q_peak
+
+        qrs_complex_mean = np.mean(qrs_complex[~np.isnan(qrs_complex)])
+        qrs_complex_var = np.var(qrs_complex[~np.isnan(qrs_complex)])
+        pr_interval_mean = np.mean(pr_interval[~np.isnan(pr_interval)])
+        pr_interval_var = np.var(pr_interval[~np.isnan(pr_interval)])
+        pr_segment_mean = np.mean(pr_segment[~np.isnan(pr_segment)])
+        pr_segment_var = np.var(pr_segment[~np.isnan(pr_segment)])
+        qt_interval_mean = np.mean(qt_interval[~np.isnan(qt_interval)])
+        pt_interval_var = np.var(qt_interval[~np.isnan(qt_interval)])
+        st_segment_mean = np.mean(st_segment[~np.isnan(st_segment)])
+        st_segment_var = np.var(st_segment[~np.isnan(st_segment)])
+        qrs_duration_mean = np.mean(qrs_duration[~np.isnan(qrs_duration)])
+        qrs_duration_var = np.var(qrs_duration[~np.isnan(qrs_duration)])
+        q_peak_amp_mean = np.mean(sample[q_peak[~np.isnan(q_peak)].astype(int), ], axis=0)
+        q_peak_amp_var = np.var(sample[q_peak[~np.isnan(q_peak)].astype(int), ], axis=0)
+    except:
+        qrs_complex_mean = 0
+        qrs_complex_var = 0
+        pr_interval_mean = 0
+        pr_interval_var = 0
+        pr_segment_mean = 0
+        pr_segment_var = 0
+        qt_interval_mean = 0
+        pt_interval_var = 0
+        st_segment_mean = 0
+        st_segment_var = 0
+        qrs_duration_mean = 0
+        qrs_duration_var = 0
+        q_peak_amp_mean = 0
+        q_peak_amp_var = 0
+        print("Extract qrspt found invalid sample")
+
+    return qrs_complex_mean, qrs_complex_var, pr_interval_mean, pr_interval_var, \
+           pr_segment_mean, pr_segment_var, qt_interval_mean, pt_interval_var, st_segment_mean, st_segment_var, \
+           qrs_duration_mean, qrs_duration_var, q_peak_amp_mean, q_peak_amp_var
 
 def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
     """
@@ -300,7 +360,7 @@ if __name__ == '__main__':
                                "mean_heart_rate", "variance_heart_rate",
                                "max_hb_graph", "min_hb_graph",
                                "perc10_hb_graph", "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
-                               "perc90_hb_graph"]
+                               "perc90_hb_graph",  "mean_rpeak_amp", "var_rpeak_amp"]
     # took 387s
     extract_features(x_train, "x_train", extract_mean_variance, extracted_feature_names,
                      skip_first=skip_first,
@@ -308,4 +368,11 @@ if __name__ == '__main__':
     # took 256s
     extract_features(x_test, "x_test", extract_mean_variance, extracted_feature_names,
                      skip_first=skip_first,
+                     skip_last=skip_last)
+
+    extracted_feature_names = ["qrs_complex_mean", "qrs_complex_var", "pr_interval_mean", "pr_interval_var",
+                               "pr_segment_mean", "pr_segment_var", "qt_interval_mean", "pt_interval_var",
+                               "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
+                               "q_peak_amp_mean", "q_peak_amp_var"]
+    extract_features(x_train.iloc, "x_train", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
                      skip_last=skip_last)
