@@ -51,7 +51,7 @@ def peaks_hr(sig, peak_inds, fs, title, figsize=(20, 10), saveto=None):
 def get_r_peaks(sample, library='biosppy'):
     if library == 'biosppy':
         ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
-            signal=sample, sampling_rate=SAMPLE_RATE, show=False, )
+            signal=sample, sampling_rate=SAMPLE_RATE, show=False)
 
     elif library == 'neurokit':
         ecg_cleaned = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
@@ -164,7 +164,7 @@ def extract_hrv_nk2(sample, r_peaks=None):
 
         r_peaks_dict = {"ECG_R_Peaks": r_peaks}
 
-        ecg_info = nk2.hrv(peaks=r_peaks_dict, sampling_rate=SAMPLE_RATE)
+        ecg_info = nk2.hrv(peaks=r_peaks_dict, sampling_rate=SAMPLE_RATE, show=False)
 
     except (ValueError, IndexError) as e:
         # probably not enough r_peaks or probably class 3
@@ -219,7 +219,7 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
         last_non_nan_idx = pd.Series.last_valid_index(sample)
         sample = sample[:last_non_nan_idx]
 
-        # sample to array
+        # sample from dataframe to ndarray
         sample = sample.values
 
         # skip first and last n data points
@@ -246,6 +246,8 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
             file_name = x_name + "_" + str(column.name) + "_skip_first_" + str(skip_first) + ".csv"
         else:
             file_name = x_name + "_" + str(column.name) + ".csv"
+        if not os.path.exists(r"./data/extracted_features"):
+            os.makedirs(r"./data/extracted_features")
         extracted.to_csv(os.path.join("./data/extracted_features", file_name), index=True)
 
     total_elapsed_time = time.time() - start_time
