@@ -48,7 +48,54 @@ def peaks_hr(sig, peak_inds, fs, title, figsize=(20, 10), saveto=None):
     plt.show()
 
 
+def correct_r_peaks(sample, peaks):
+    max_bpm = 200
+    # Use the maximum possible bpm as the search radius
+    search_radius = int(SAMPLE_RATE * 60 / max_bpm)
+    try:
+        corrected_peak_inds = processing.peaks.correct_peaks(sample,
+                                                             peak_inds=peaks,
+                                                             search_radius=search_radius,
+                                                             smooth_window_size=150)
+
+        if corrected_peak_inds[0] < 0:  # sometimes the first index gets corrected to a negative value
+            corrected_peak_inds = corrected_peak_inds[1:]
+
+    except:
+        corrected_peak_inds = peaks
+
+    return corrected_peak_inds
+
+
+def filter_signal(sample):
+    """
+    If applied to an already filtered signal, filters the signal even further!
+    :param sample:
+    :return:
+    """
+
+    """
+    # filter signal with biosppy
+    order = int(0.3 * SAMPLE_RATE)
+    sample_filtered, _, _ = biosppy.tools.filter_signal(signal=sample,
+                                                        ftype='FIR',
+                                                        band='bandpass',
+                                                        order=order,
+                                                        frequency=[3, 45],
+                                                        sampling_rate=SAMPLE_RATE)
+    """
+    # this one line of code does the same as the commented code above
+    sample_filtered = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
+
+    return sample_filtered
+
+
 def get_r_peaks(sample, library='biosppy'):
+    """
+    :param sample: Supply unfiltered signal, does filtering!
+    :param library:
+    :return:
+    """
     if library == 'biosppy':
         ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
             signal=sample, sampling_rate=SAMPLE_RATE, show=False)
@@ -63,7 +110,9 @@ def get_r_peaks(sample, library='biosppy'):
         r_peaks = np.asarray(r_peaks["ECG_R_Peaks"])
 
     elif library == 'wfdb':
-        xqrs = wfdb.processing.XQRS(sig=sample, fs=SAMPLE_RATE)
+        filtered = filter_signal(sample)
+
+        xqrs = wfdb.processing.XQRS(sig=filtered, fs=SAMPLE_RATE)
         xqrs.detect(sampfrom=0, sampto='end', learn=True, verbose=0)
         qrs_inds = xqrs.qrs_inds
         # Plot results
@@ -72,18 +121,10 @@ def get_r_peaks(sample, library='biosppy'):
         if qrs_inds.shape[0] == 0:
             return np.ndarray([])
 
-        # Correct the peaks shifting them to local maxima
-        min_bpm = 20
-        max_bpm = 230
-        # min_gap = record.fs * 60 / min_bpm
-        # Use the maximum possible bpm as the search radius
-        search_radius = int(SAMPLE_RATE * 60 / max_bpm)
-        corrected_peak_inds = processing.peaks.correct_peaks(sample,
-                                                             peak_inds=qrs_inds,
-                                                             search_radius=search_radius,
-                                                             smooth_window_size=150)
+        r_peaks = correct_r_peaks(filtered, qrs_inds)
 
-        r_peaks = corrected_peak_inds
+        # remove first r-peak: by manual analysis the first one is often incorrect
+        r_peaks = r_peaks[1:]
 
     else:
         raise AssertionError("Library does not exist:", library)
@@ -187,9 +228,12 @@ def extract_hrv_and_nni(sample):
 
     return res1, res2, np.asarray(res3).flatten()
 
+
 def exctract_qrspt(sample):
     r_peaks = get_r_peaks(sample, 'biosppy')
     try:
+        # filter signal first
+        sample = filter_signal(sample)
         signal_dwt, waves_dwt = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="dwt", show=False, show_type='all')
         signal_peak, waves_peak = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="peak", show=False, show_type='all')
 
@@ -244,6 +288,7 @@ def exctract_qrspt(sample):
     return qrs_complex_mean, qrs_complex_var, pr_interval_mean, pr_interval_var, \
            pr_segment_mean, pr_segment_var, qt_interval_mean, pt_interval_var, st_segment_mean, st_segment_var, \
            qrs_duration_mean, qrs_duration_var, q_peak_amp_mean, q_peak_amp_var
+
 
 def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
     """
@@ -360,7 +405,7 @@ if __name__ == '__main__':
                                "mean_heart_rate", "variance_heart_rate",
                                "max_hb_graph", "min_hb_graph",
                                "perc10_hb_graph", "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph",
-                               "perc90_hb_graph",  "mean_rpeak_amp", "var_rpeak_amp"]
+                               "perc90_hb_graph", "mean_rpeak_amp", "var_rpeak_amp"]
     # took 387s
     extract_features(x_train, "x_train", extract_mean_variance, extracted_feature_names,
                      skip_first=skip_first,
