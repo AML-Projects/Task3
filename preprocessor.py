@@ -196,7 +196,9 @@ def extract_nni(sample, r_peaks=None):
     if r_peaks is None:
         r_peaks = RPeakDetector.get_r_peaks(sample)
 
-    if r_peaks.shape[0] == 1:
+    if r_peaks.shape[0] == 0:
+        return 0, 0
+    elif r_peaks.shape[0] == 1:
         nni = r_peaks
     else:
         nni = pyhrv.tools.nn_intervals(rpeaks=r_peaks)
@@ -219,8 +221,9 @@ def extract_hrv_nk2(sample, r_peaks=None):
     except (ValueError, IndexError) as e:
         # probably not enough r_peaks or probably class 3
         print("ValueError:", str(e))
-        nk2.ecg_findpeaks(ecg_cleaned=sample, sampling_rate=SAMPLE_RATE, show=True)
-        plt.show()
+        # nk2.ecg_findpeaks(ecg_cleaned=sample, sampling_rate=SAMPLE_RATE, show=True)
+        # plt.show()
+        RPeakDetector.peaks_hr(sample, r_peaks, SAMPLE_RATE, title="failed hrv")
 
         return [np.zeros(52)]
 
