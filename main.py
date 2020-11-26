@@ -18,19 +18,38 @@ from sklearn.metrics import f1_score, confusion_matrix
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import RobustScaler
 
-def get_data(data, skip_first=0):
-    feature_list = []
 
-    feature_names = ["mean", "variance", "mean_heart_rate", "variance_heart_rate",
-                     "max_hb_graph", "min_hb_graph", "perc10_hb_graph",
-                     "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph", "perc90_hb_graph",
-                     "mean_rpeak_amp", "var_rpeak_amp", #first batch
-                     "nni_mean", "nni_var", "biosppy_hrv",  #second batch
-                     "qrs_complex_mean", "qrs_complex_var", "pr_interval_mean", "pr_interval_var",
-                     "pr_segment_mean", "pr_segment_var", "qt_interval_mean", "pt_interval_var",
-                     "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
-                     "q_peak_amp_mean", "q_peak_amp_var" #third batch
-                     ]
+def get_data(data, skip_first=0, features='111'):
+    """
+
+    :param data: train / test
+    :param skip_first:
+    :param features: 111 = include all features, 110 = include features 1 and 2, ...
+    :return:
+    """
+    feature_list = []
+    feature_names = []
+
+    feature_names_1 = ["mean", "variance", "mean_heart_rate", "variance_heart_rate",
+                       "max_hb_graph", "min_hb_graph", "perc10_hb_graph",
+                       "perc25_hb_graph", "perc50_hb_graph", "perc75_hb_graph", "perc90_hb_graph"
+                       ]
+
+    feature_names_2 = ["nni_mean", "nni_var", "biosppy_hrv"]  # second batch
+
+    feature_names_3 = ["qrs_complex_mean", "qrs_complex_var", "pr_interval_mean", "pr_interval_var",
+                       "pr_segment_mean", "pr_segment_var", "qt_interval_mean", "pt_interval_var",
+                       "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
+                       "q_peak_amp_mean", "q_peak_amp_var"]  # third batch
+
+    # feature_names_3 = [x + '_filtered' for x in feature_names_3]
+
+    if features[0] == '1':
+        feature_names.extend(feature_names_1)
+    if features[1] == '1':
+        feature_names.extend(feature_names_2)
+    if features[2] == '1':
+        feature_names.extend(feature_names_3)
 
     for name in feature_names:
         if skip_first == 0:
@@ -70,8 +89,8 @@ if __name__ == "__main__":
     Logcreator.info("Environment: %s" % Configuration.get('environment.name'))
 
     search = args.hyperparamsearch
-    x_train_data = get_data("train", skip_first=300)
-    x_test_handin = get_data("test", skip_first=300)
+    x_train_data = get_data("train", skip_first=300, features='111')
+    x_test_handin = get_data("test", skip_first=300, features='111')
 
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
