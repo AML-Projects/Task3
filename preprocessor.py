@@ -17,54 +17,105 @@ from logcreator.logcreator import Logcreator
 SAMPLE_RATE = 300
 
 
-def peaks_hr(sig, peak_inds, fs, title, figsize=(20, 10), saveto=None):
-    """"
-    Plot a signal with its peaks and heart rate
-    https://github.com/MIT-LCP/wfdb-python/blob/master/demo.ipynb
-    """
-    # Calculate heart rate
-    hrs = processing.hr.compute_hr(sig_len=sig.shape[0], qrs_inds=peak_inds, fs=fs)
+class RPeakDetector:
+    r_peak_detection_method = 'biosppy'
 
-    N = sig.shape[0]
+    @staticmethod
+    def peaks_hr(sig, peak_inds, fs, title, figsize=(20, 10), saveto=None):
+        """"
+        Plot a signal with its peaks and heart rate
+        https://github.com/MIT-LCP/wfdb-python/blob/master/demo.ipynb
+        """
+        # Calculate heart rate
+        hrs = processing.hr.compute_hr(sig_len=sig.shape[0], qrs_inds=peak_inds, fs=fs)
 
-    fig, ax_left = plt.subplots(figsize=figsize)
-    ax_right = ax_left.twinx()
+        N = sig.shape[0]
 
-    ax_left.plot(sig, color='#3979f0', label='Signal')
-    ax_left.plot(peak_inds, sig[peak_inds], 'rx', marker='x',
-                 color='#8b0000', label='Peak', markersize=12)
-    ax_right.plot(np.arange(N), hrs, label='Heart rate', color='m', linewidth=2)
+        fig, ax_left = plt.subplots(figsize=figsize)
+        ax_right = ax_left.twinx()
 
-    ax_left.set_title(title)
+        ax_left.plot(sig, color='#3979f0', label='Signal')
+        ax_left.plot(peak_inds, sig[peak_inds], 'rx', marker='x',
+                     color='#8b0000', label='Peak', markersize=12)
+        ax_right.plot(np.arange(N), hrs, label='Heart rate', color='m', linewidth=2)
 
-    ax_left.set_xlabel('Time (ms)')
-    ax_left.set_ylabel('ECG (mV)', color='#3979f0')
-    ax_right.set_ylabel('Heart rate (bpm)', color='m')
-    # Make the y-axis label, ticks and tick labels match the line color.
-    ax_left.tick_params('y', colors='#3979f0')
-    ax_right.tick_params('y', colors='m')
-    if saveto is not None:
-        plt.savefig(saveto, dpi=600)
-    plt.show()
+        ax_left.set_title(title)
 
+        ax_left.set_xlabel('Time (ms)')
+        ax_left.set_ylabel('ECG (mV)', color='#3979f0')
+        ax_right.set_ylabel('Heart rate (bpm)', color='m')
+        # Make the y-axis label, ticks and tick labels match the line color.
+        ax_left.tick_params('y', colors='#3979f0')
+        ax_right.tick_params('y', colors='m')
+        if saveto is not None:
+            plt.savefig(saveto, dpi=600)
+        plt.show()
+        pass
 
-def correct_r_peaks(sample, peaks):
-    max_bpm = 200
-    # Use the maximum possible bpm as the search radius
-    search_radius = int(SAMPLE_RATE * 60 / max_bpm)
-    try:
-        corrected_peak_inds = processing.peaks.correct_peaks(sample,
-                                                             peak_inds=peaks,
-                                                             search_radius=search_radius,
-                                                             smooth_window_size=150)
+    @staticmethod
+    def correct_r_peaks(sample, peaks):
+        max_bpm = 200
+        # Use the maximum possible bpm as the search radius
+        search_radius = int(SAMPLE_RATE * 60 / max_bpm)
+        try:
+            corrected_peak_inds = processing.peaks.correct_peaks(sample,
+                                                                 peak_inds=peaks,
+                                                                 search_radius=search_radius,
+                                                                 smooth_window_size=150)
 
-        if corrected_peak_inds[0] < 0:  # sometimes the first index gets corrected to a negative value
-            corrected_peak_inds = corrected_peak_inds[1:]
+            if corrected_peak_inds[0] < 0:  # sometimes the first index gets corrected to a negative value
+                corrected_peak_inds = corrected_peak_inds[1:]
 
-    except:
-        corrected_peak_inds = peaks
+        except:
+            corrected_peak_inds = peaks
 
-    return corrected_peak_inds
+        return corrected_peak_inds
+
+    @staticmethod
+    def get_r_peaks(sample):
+        """
+        :param sample: Supply unfiltered signal, does filtering!
+        :return:
+        """
+        library = RPeakDetector.r_peak_detection_method
+
+        if library == 'biosppy':
+            ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
+                signal=sample, sampling_rate=SAMPLE_RATE, show=False)
+
+        elif library == 'neurokit':
+            ecg_cleaned = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
+
+            instant_peaks, r_peaks, = nk2.ecg_peaks(
+                ecg_cleaned=ecg_cleaned, sampling_rate=SAMPLE_RATE, method='rodrigues2020', correct_artifacts=True
+            )
+
+            r_peaks = np.asarray(r_peaks["ECG_R_Peaks"])
+
+        elif library == 'wfdb':
+            filtered = filter_signal(sample)
+
+            xqrs = wfdb.processing.XQRS(sig=filtered, fs=SAMPLE_RATE)
+            xqrs.detect(sampfrom=0, sampto='end', learn=True, verbose=0)
+            qrs_inds = xqrs.qrs_inds
+            # Plot results
+            # peaks_hr(sig=sample, peak_inds=qrs_inds, fs=SAMPLE_RATE, title="R peaks")
+
+            if qrs_inds.shape[0] == 0:
+                return np.ndarray([])
+
+            r_peaks = RPeakDetector.correct_r_peaks(filtered, qrs_inds)
+
+            # remove first r-peak: by manual analysis the first one is often incorrect
+            r_peaks = r_peaks[1:]
+
+        else:
+            raise AssertionError("Library does not exist:", library)
+
+        # sometimes two peaks are the same
+        r_peaks = np.unique(r_peaks)
+
+        return r_peaks
 
 
 def filter_signal(sample):
@@ -88,51 +139,6 @@ def filter_signal(sample):
     sample_filtered = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
 
     return sample_filtered
-
-
-def get_r_peaks(sample, library='biosppy'):
-    """
-    :param sample: Supply unfiltered signal, does filtering!
-    :param library:
-    :return:
-    """
-    if library == 'biosppy':
-        ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
-            signal=sample, sampling_rate=SAMPLE_RATE, show=False)
-
-    elif library == 'neurokit':
-        ecg_cleaned = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
-
-        instant_peaks, r_peaks, = nk2.ecg_peaks(
-            ecg_cleaned=ecg_cleaned, sampling_rate=SAMPLE_RATE, method='rodrigues2020', correct_artifacts=True
-        )
-
-        r_peaks = np.asarray(r_peaks["ECG_R_Peaks"])
-
-    elif library == 'wfdb':
-        filtered = filter_signal(sample)
-
-        xqrs = wfdb.processing.XQRS(sig=filtered, fs=SAMPLE_RATE)
-        xqrs.detect(sampfrom=0, sampto='end', learn=True, verbose=0)
-        qrs_inds = xqrs.qrs_inds
-        # Plot results
-        # peaks_hr(sig=sample, peak_inds=qrs_inds, fs=SAMPLE_RATE, title="R peaks")
-
-        if qrs_inds.shape[0] == 0:
-            return np.ndarray([])
-
-        r_peaks = correct_r_peaks(filtered, qrs_inds)
-
-        # remove first r-peak: by manual analysis the first one is often incorrect
-        r_peaks = r_peaks[1:]
-
-    else:
-        raise AssertionError("Library does not exist:", library)
-
-    # sometimes two peaks are the same
-    r_peaks = np.unique(r_peaks)
-
-    return r_peaks
 
 
 def extract_mean_variance(sample, show=False):
@@ -188,7 +194,7 @@ def extract_mean_variance(sample, show=False):
 
 def extract_nni(sample, r_peaks=None):
     if r_peaks is None:
-        r_peaks = get_r_peaks(sample, 'wfdb')
+        r_peaks = RPeakDetector.get_r_peaks(sample)
 
     if r_peaks.shape[0] == 1:
         nni = r_peaks
@@ -204,7 +210,7 @@ def extract_nni(sample, r_peaks=None):
 def extract_hrv_nk2(sample, r_peaks=None):
     try:
         if r_peaks is None:
-            r_peaks = get_r_peaks(sample, 'biosppy')
+            r_peaks = RPeakDetector.get_r_peaks(sample)
 
         r_peaks_dict = {"ECG_R_Peaks": r_peaks}
 
@@ -222,7 +228,7 @@ def extract_hrv_nk2(sample, r_peaks=None):
 
 
 def extract_hrv_and_nni(sample):
-    r_peaks = get_r_peaks(sample, 'biosppy')
+    r_peaks = RPeakDetector.get_r_peaks(sample)
     res1, res2 = extract_nni(sample, r_peaks)
     res3 = extract_hrv_nk2(sample, r_peaks)
 
@@ -230,7 +236,7 @@ def extract_hrv_and_nni(sample):
 
 
 def exctract_qrspt(sample):
-    r_peaks = get_r_peaks(sample, 'biosppy')
+    r_peaks = RPeakDetector.get_r_peaks(sample)
     try:
         # filter signal first
         sample = filter_signal(sample)
@@ -362,6 +368,8 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
 if __name__ == '__main__':
     # set n_rows to a integer for testing, to read only the top n-rows
     n_rows = None
+    # set r peak detection
+    RPeakDetector.r_peak_detection_method = 'biosppy'
     # set number of data points to skip
     skip_first = 300
     skip_last = 300
