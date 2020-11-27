@@ -85,7 +85,7 @@ class RPeakDetector:
             # filter signal
             filtered = filter_signal(sample)
             # segment
-            r_peaks = biosppy.signals.ecg.hamilton_segmenter(signal=filtered, sampling_rate=SAMPLE_RATE)
+            r_peaks = biosppy.signals.ecg.hamilton_segmenter(signal=filtered, sampling_rate=SAMPLE_RATE)[0]
             # correct R-peak locations
             r_peaks = biosppy.signals.ecg.correct_rpeaks(signal=filtered,
                                                          rpeaks=r_peaks,
