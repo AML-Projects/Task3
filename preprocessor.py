@@ -362,7 +362,11 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
             file_name = x_name + "_" + str(column.name) + ".csv"
         if not os.path.exists(r"./data/extracted_features"):
             os.makedirs(r"./data/extracted_features")
-        extracted.to_csv(os.path.join("./data/extracted_features", file_name), index=True)
+        # save files in a different directory depending on the r-peak detection method
+        directory = r"./data/extracted_features/" + RPeakDetector.r_peak_detection_method
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        extracted.to_csv(os.path.join(directory, file_name), index=True)
 
     total_elapsed_time = time.time() - start_time
     Logcreator.info("\nFeature extraction finished in %d [s]." % total_elapsed_time)
@@ -372,7 +376,7 @@ if __name__ == '__main__':
     # set n_rows to a integer for testing, to read only the top n-rows
     n_rows = None
     # set r peak detection
-    RPeakDetector.r_peak_detection_method = 'biosppy'
+    RPeakDetector.r_peak_detection_method = 'biosppy'  # biosppy, wfdb
     # set number of data points to skip
     skip_first = 300
     skip_last = 300
