@@ -26,6 +26,11 @@ class RPeakDetector:
         Plot a signal with its peaks and heart rate
         https://github.com/MIT-LCP/wfdb-python/blob/master/demo.ipynb
         """
+        fig_length = peak_inds.shape[0]
+        if fig_length < 10:
+            fig_length = 10
+        figsize = (fig_length, 12)
+
         # Calculate heart rate
         hrs = processing.hr.compute_hr(sig_len=sig.shape[0], qrs_inds=peak_inds, fs=fs)
 
@@ -182,8 +187,8 @@ def extract_mean_variance(sample, show=False):
     perc75_hb_graph = np.percentile(heartbeat_templates, q=75, axis=0)
     perc90_hb_graph = np.percentile(heartbeat_templates, q=90, axis=0)
     min_hb_graph = np.min(heartbeat_templates, axis=0)
-    mean_rpeak_amp = np.mean(sample[rpeaks, ], axis=0)
-    var_rpeak_amp = np.var(sample[rpeaks, ], axis=0)
+    mean_rpeak_amp = np.mean(sample[rpeaks,], axis=0)
+    var_rpeak_amp = np.var(sample[rpeaks,], axis=0)
 
     if show:
         plt.plot(range(0, perc25_hb_graph.shape[0]), max_hb_graph)
@@ -246,61 +251,72 @@ def extract_hrv_and_nni(sample):
     return res1, res2, np.asarray(res3).flatten()
 
 
+def get_qrspt_features(r_peaks, sample):
+    signal_dwt, waves_dwt = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="dwt", show=False)
+    signal_peak, waves_peak = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="peak", show=False)
+
+    t_peaks = np.array(waves_dwt['ECG_T_Peaks'])
+    t_onsets = np.array(waves_dwt['ECG_T_Onsets'])
+    t_offsets = np.array(waves_dwt['ECG_T_Offsets'])
+    p_peaks = np.array(waves_dwt['ECG_P_Peaks'])
+    p_onsets = np.array(waves_dwt['ECG_P_Onsets'])
+    p_offsets = np.array(waves_dwt['ECG_P_Offsets'])
+    r_onsets = np.array(waves_dwt['ECG_R_Onsets'])
+    r_offsets = np.array(waves_dwt['ECG_R_Offsets'])
+    q_peak = np.array(waves_peak['ECG_Q_Peaks'])
+    s_peak = np.array(waves_peak['ECG_S_Peaks'])
+
+    qrs_complex = r_offsets - r_onsets
+    pr_interval = r_onsets - p_onsets
+    pr_segment = r_onsets - p_offsets
+    qt_interval = t_offsets - r_onsets
+    st_segment = t_onsets - r_offsets
+    qrs_duration = s_peak - q_peak
+
+    qrs_complex_mean = np.mean(qrs_complex[~np.isnan(qrs_complex)])
+    qrs_complex_var = np.var(qrs_complex[~np.isnan(qrs_complex)])
+    pr_interval_mean = np.mean(pr_interval[~np.isnan(pr_interval)])
+    pr_interval_var = np.var(pr_interval[~np.isnan(pr_interval)])
+    pr_segment_mean = np.mean(pr_segment[~np.isnan(pr_segment)])
+    pr_segment_var = np.var(pr_segment[~np.isnan(pr_segment)])
+    qt_interval_mean = np.mean(qt_interval[~np.isnan(qt_interval)])
+    pt_interval_var = np.var(qt_interval[~np.isnan(qt_interval)])
+    st_segment_mean = np.mean(st_segment[~np.isnan(st_segment)])
+    st_segment_var = np.var(st_segment[~np.isnan(st_segment)])
+    qrs_duration_mean = np.mean(qrs_duration[~np.isnan(qrs_duration)])
+    qrs_duration_var = np.var(qrs_duration[~np.isnan(qrs_duration)])
+    q_peak_amp_mean = np.mean(sample[q_peak[~np.isnan(q_peak)].astype(int),], axis=0)
+    q_peak_amp_var = np.var(sample[q_peak[~np.isnan(q_peak)].astype(int),], axis=0)
+
+    return pr_interval_mean, pr_interval_var, pr_segment_mean, pr_segment_var, pt_interval_var, q_peak_amp_mean, q_peak_amp_var, \
+           qrs_complex_mean, qrs_complex_var, qrs_duration_mean, qrs_duration_var, qt_interval_mean, st_segment_mean, st_segment_var
+
+
 def exctract_qrspt(sample):
     r_peaks = RPeakDetector.get_r_peaks(sample)
+    # filter signal first
+    filtered = filter_signal(sample)
     try:
-        # filter signal first
-        sample = filter_signal(sample)
-        signal_dwt, waves_dwt = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="dwt", show=False, show_type='all')
-        signal_peak, waves_peak = nk2.ecg_delineate(sample, r_peaks, sampling_rate=SAMPLE_RATE, method="peak", show=False, show_type='all')
-
-        t_peaks = np.array(waves_dwt['ECG_T_Peaks'])
-        t_onsets = np.array(waves_dwt['ECG_T_Onsets'])
-        t_offsets = np.array(waves_dwt['ECG_T_Offsets'])
-        p_peaks = np.array(waves_dwt['ECG_P_Peaks'])
-        p_onsets = np.array(waves_dwt['ECG_P_Onsets'])
-        p_offsets = np.array(waves_dwt['ECG_P_Offsets'])
-        r_onsets = np.array(waves_dwt['ECG_R_Onsets'])
-        r_offsets = np.array(waves_dwt['ECG_R_Offsets'])
-        q_peak = np.array(waves_peak['ECG_Q_Peaks'])
-        s_peak = np.array(waves_peak['ECG_S_Peaks'])
-        qrs_complex = r_offsets - r_onsets
-        pr_interval = r_onsets - p_onsets
-        pr_segment = r_onsets - p_offsets
-        qt_interval = t_offsets - r_onsets
-        st_segment = t_onsets - r_offsets
-        qrs_duration = s_peak - q_peak
-
-        qrs_complex_mean = np.mean(qrs_complex[~np.isnan(qrs_complex)])
-        qrs_complex_var = np.var(qrs_complex[~np.isnan(qrs_complex)])
-        pr_interval_mean = np.mean(pr_interval[~np.isnan(pr_interval)])
-        pr_interval_var = np.var(pr_interval[~np.isnan(pr_interval)])
-        pr_segment_mean = np.mean(pr_segment[~np.isnan(pr_segment)])
-        pr_segment_var = np.var(pr_segment[~np.isnan(pr_segment)])
-        qt_interval_mean = np.mean(qt_interval[~np.isnan(qt_interval)])
-        pt_interval_var = np.var(qt_interval[~np.isnan(qt_interval)])
-        st_segment_mean = np.mean(st_segment[~np.isnan(st_segment)])
-        st_segment_var = np.var(st_segment[~np.isnan(st_segment)])
-        qrs_duration_mean = np.mean(qrs_duration[~np.isnan(qrs_duration)])
-        qrs_duration_var = np.var(qrs_duration[~np.isnan(qrs_duration)])
-        q_peak_amp_mean = np.mean(sample[q_peak[~np.isnan(q_peak)].astype(int), ], axis=0)
-        q_peak_amp_var = np.var(sample[q_peak[~np.isnan(q_peak)].astype(int), ], axis=0)
+        pr_interval_mean, pr_interval_var, pr_segment_mean, pr_segment_var, pt_interval_var, \
+        q_peak_amp_mean, q_peak_amp_var, qrs_complex_mean, qrs_complex_var, qrs_duration_mean, \
+        qrs_duration_var, qt_interval_mean, st_segment_mean, st_segment_var = get_qrspt_features(r_peaks, filtered)
     except:
-        qrs_complex_mean = 0
-        qrs_complex_var = 0
-        pr_interval_mean = 0
-        pr_interval_var = 0
-        pr_segment_mean = 0
-        pr_segment_var = 0
-        qt_interval_mean = 0
-        pt_interval_var = 0
-        st_segment_mean = 0
-        st_segment_var = 0
-        qrs_duration_mean = 0
-        qrs_duration_var = 0
-        q_peak_amp_mean = 0
-        q_peak_amp_var = 0
-        print("Extract qrspt found invalid sample")
+        RPeakDetector.peaks_hr(sample, r_peaks, SAMPLE_RATE, title="Fail1: qrspt extraction")
+        # fall back to biosppy if it is not already biosppy
+        if RPeakDetector.r_peak_detection_method == "biosppy":
+            print("Extract qrspt found invalid sample")
+            return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+        try:
+
+            pr_interval_mean, pr_interval_var, pr_segment_mean, pr_segment_var, pt_interval_var, \
+            q_peak_amp_mean, q_peak_amp_var, qrs_complex_mean, qrs_complex_var, qrs_duration_mean, \
+            qrs_duration_var, qt_interval_mean, st_segment_mean, st_segment_var = get_qrspt_features(r_peaks, filtered)
+
+        except:
+            RPeakDetector.peaks_hr(sample, r_peaks, SAMPLE_RATE, title="Fail2: biosppy qrspt extraction")
+            print("Extract qrspt found invalid sample")
+            return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
     return qrs_complex_mean, qrs_complex_var, pr_interval_mean, pr_interval_var, \
            pr_segment_mean, pr_segment_var, qt_interval_mean, pt_interval_var, st_segment_mean, st_segment_var, \
@@ -436,16 +452,4 @@ if __name__ == '__main__':
     # took 256s
     extract_features(x_test, "x_test", extract_mean_variance, extracted_feature_names,
                      skip_first=skip_first,
-                     skip_last=skip_last)
-
-    # extracting many things
-    extracted_feature_names = ["qrs_complex_mean", "qrs_complex_var", "pr_interval_mean", "pr_interval_var",
-                               "pr_segment_mean", "pr_segment_var", "qt_interval_mean", "pt_interval_var",
-                               "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
-                               "q_peak_amp_mean", "q_peak_amp_var"]
-    # took 2801s
-    extract_features(x_train, "x_train", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
-                     skip_last=skip_last)
-    # took 1942s
-    extract_features(x_test, "x_test", exctract_qrspt, extracted_feature_names, skip_first=skip_first,
                      skip_last=skip_last)
