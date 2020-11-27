@@ -307,14 +307,14 @@ def exctract_qrspt(sample):
             print("Extract qrspt found invalid sample")
             return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
+        r_peaks = RPeakDetector.get_r_peaks(sample, 'biosppy')
+        RPeakDetector.peaks_hr(sample, r_peaks, SAMPLE_RATE, title="biosppy r-peaks")
         try:
-
             pr_interval_mean, pr_interval_var, pr_segment_mean, pr_segment_var, pt_interval_var, \
             q_peak_amp_mean, q_peak_amp_var, qrs_complex_mean, qrs_complex_var, qrs_duration_mean, \
             qrs_duration_var, qt_interval_mean, st_segment_mean, st_segment_var = get_qrspt_features(r_peaks, filtered)
 
         except:
-            RPeakDetector.peaks_hr(sample, r_peaks, SAMPLE_RATE, title="Fail2: biosppy qrspt extraction")
             print("Extract qrspt found invalid sample")
             return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
