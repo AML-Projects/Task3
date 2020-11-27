@@ -128,6 +128,13 @@ class RPeakDetector:
             # remove first r-peak: by manual analysis the first one is often incorrect
             r_peaks = r_peaks[1:]
 
+            # extract templates -> this function corrects r-peaks further!
+            templates, r_peaks = biosppy.signals.ecg.extract_heartbeats(signal=filtered,
+                                                                        rpeaks=r_peaks,
+                                                                        sampling_rate=SAMPLE_RATE,
+                                                                        before=0.2,
+                                                                        after=0.4)
+
         else:
             raise AssertionError("Library does not exist:", library)
 
