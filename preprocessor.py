@@ -97,6 +97,12 @@ class RPeakDetector:
                                                          sampling_rate=SAMPLE_RATE,
                                                          tol=0.05)
 
+            # extract templates -> this function corrects r-peaks further!
+            templates, r_peaks = biosppy.signals.ecg.extract_heartbeats(signal=filtered,
+                                                                        rpeaks=r_peaks,
+                                                                        sampling_rate=SAMPLE_RATE,
+                                                                        before=0.2,
+                                                                        after=0.4)
         elif library == 'neurokit':
             method = 'neurokit'  # "kalidas2017"
             # filter signal
