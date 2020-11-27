@@ -72,39 +72,47 @@ class RPeakDetector:
         return corrected_peak_inds
 
     @staticmethod
-    def get_r_peaks(sample):
+    def get_r_peaks(sample, library=None):
         """
         :param sample: Supply unfiltered signal, does filtering!
+        :param library:
         :return:
         """
-        library = RPeakDetector.r_peak_detection_method
+        if library is None:
+            library = RPeakDetector.r_peak_detection_method
 
         if library == 'biosppy':
-            ts, filtered, r_peaks, heartbeat_templates_ts, heartbeat_templates, heart_rate_ts, heart_rate = biosppy.signals.ecg.ecg(
-                signal=sample, sampling_rate=SAMPLE_RATE, show=False)
+            # filter signal
+            filtered = filter_signal(sample)
+            # segment
+            r_peaks = biosppy.signals.ecg.hamilton_segmenter(signal=filtered, sampling_rate=SAMPLE_RATE)
+            # correct R-peak locations
+            r_peaks = biosppy.signals.ecg.correct_rpeaks(signal=filtered,
+                                                         rpeaks=r_peaks,
+                                                         sampling_rate=SAMPLE_RATE,
+                                                         tol=0.05)
 
         elif library == 'neurokit':
-            ecg_cleaned = nk2.ecg_clean(ecg_signal=sample, sampling_rate=SAMPLE_RATE, method='biosppy')
-
-            instant_peaks, r_peaks, = nk2.ecg_peaks(
-                ecg_cleaned=ecg_cleaned, sampling_rate=SAMPLE_RATE, method='rodrigues2020', correct_artifacts=True
-            )
-
-            r_peaks = np.asarray(r_peaks["ECG_R_Peaks"])
+            method = 'neurokit'  # "kalidas2017"
+            # filter signal
+            filtered = nk2.ecg_clean(sample, method=method, sampling_rate=SAMPLE_RATE)
+            # find peaks
+            r_peaks = nk2.ecg_findpeaks(ecg_cleaned=filtered, method=method, sampling_rate=SAMPLE_RATE)["ECG_R_Peaks"]
 
         elif library == 'wfdb':
+            # filter signal
             filtered = filter_signal(sample)
 
             xqrs = wfdb.processing.XQRS(sig=filtered, fs=SAMPLE_RATE)
             xqrs.detect(sampfrom=0, sampto='end', learn=True, verbose=0)
-            qrs_inds = xqrs.qrs_inds
+            r_peaks = xqrs.qrs_inds
             # Plot results
             # peaks_hr(sig=sample, peak_inds=qrs_inds, fs=SAMPLE_RATE, title="R peaks")
 
-            if qrs_inds.shape[0] == 0:
+            if r_peaks.shape[0] == 0:
                 return np.ndarray([])
 
-            r_peaks = RPeakDetector.correct_r_peaks(filtered, qrs_inds)
+            r_peaks = RPeakDetector.correct_r_peaks(filtered, r_peaks)
 
             # remove first r-peak: by manual analysis the first one is often incorrect
             r_peaks = r_peaks[1:]
