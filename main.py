@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, Randomize
 from sklearn.preprocessing import RobustScaler
 
 
-def get_data(data, skip_first=0, features='111'):
+def get_data(data, skip_first=0, features='111', folder=''):
     """
 
     :param data: train / test
@@ -52,12 +52,13 @@ def get_data(data, skip_first=0, features='111'):
         feature_names.extend(feature_names_3)
 
     for name in feature_names:
+        path_to_files = "./data/extracted_features/"
+        if folder != '':
+            path_to_files = path_to_files + folder + "/"
         if skip_first == 0:
-            x_feature = pd.read_csv("./data/extracted_features/x_" + data + "_" + name + ".csv", index_col=0)
+            x_feature = pd.read_csv(path_to_files + "x_" + data + "_" + name + ".csv", index_col=0)
         else:
-            x_feature = pd.read_csv(
-                "./data/extracted_features/x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv",
-                index_col=0)
+            x_feature = pd.read_csv(path_to_files + "/x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv", index_col=0)
         feature_list.append(x_feature)
 
     x_data = pd.concat(feature_list, axis=1)
