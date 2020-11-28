@@ -11,11 +11,13 @@ import time
 import xgboost as xgboost
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+
 from helpers import argumenthelper
 from logcreator.logcreator import Logcreator
 from source.configuration import Configuration
 from sklearn.metrics import f1_score, confusion_matrix
-from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV, cross_val_score
 from sklearn.preprocessing import RobustScaler
 
 
@@ -79,6 +81,8 @@ if __name__ == "__main__":
                         help="If set to true, whole trainingset used for training")
     parser.add_argument('--hyperparamsearch', default=False, type=argumenthelper.boolean_string,
                         help="If set to true, will perform hyper parameter search, else it will only fit the given model")
+    parser.add_argument('--cvscore', default=True, type=argumenthelper.boolean_string,
+                        help="If True does perform cross validation on the training set.")
 
     args = argumenthelper.parse_args(parser)
     start = time.time()
@@ -113,9 +117,9 @@ if __name__ == "__main__":
 
     if not args.handin:
         x_train, x_test, y_train, y_test = train_test_split(x_train_data, y_train_data,
-                                                        test_size=0.2,
-                                                        stratify=y_train_data,
-                                                        random_state=41)
+                                                            test_size=0.2,
+                                                            stratify=y_train_data,
+                                                            random_state=41)
     else:
         x_train = x_train_data
         y_train = y_train_data
@@ -125,30 +129,30 @@ if __name__ == "__main__":
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
-    model = xgboost.XGBClassifier(objective='multi:softmax',
-                                  n_estimators=897,
-                                  max_depth=20,
-                                  min_child_weight=3,
-                                  reg_lambda=0,
-                                  subsample=0.74,
-                                  colsample_bytree=0.49,
-                                  colsample_bylevel=0.64,
-                                  num_class=3,
-                                  n_jobs=-1,
-                                  gamma=1,
-                                  random_state=41)
-    Logcreator.info("xgboost.XGBClassifier(objective='multi:softmax', "
-                    "n_estimators=897, "
-                    "max_depth=20, "
-                    "min_child_weight=3, "
-                    "reg_lambda=0, "
-                    "subsample=0.74,"
-                    "colsample_bytree=0.49,"
-                    "colsample_bylevel=0.64,"
-                    "num_class=3,"
-                    "n_jobs=-1,"
-                    "gamma=1,"
-                    "random_state=41)")
+    parameter = {
+        'objective': 'multi:softmax',
+        'n_estimators': 897,
+        'max_depth': 20,
+
+        'min_child_weight': 3,
+        'reg_lambda': 0,
+        'subsample': 0.74,
+        'colsample_bytree': 0.49,
+        'colsample_bylevel': 0.64,
+        'gamma': 1,
+
+        'random_state': 41
+    }
+
+    model = xgboost.XGBClassifier(**parameter)
+    # model = RandomForestClassifier(n_estimators=500, random_state=41)
+
+    Logcreator.info(model)
+
+    if args.cvscore:
+        Logcreator.info("Running CV on the training set")
+        sk = StratifiedKFold(shuffle=True, n_splits=10, random_state=41)
+        Logcreator.info("CV-score", cross_val_score(model, x_train, y_train.values.flatten(), cv=sk, scoring='f1_micro', n_jobs=-1).mean())
 
     model.fit(x_train, y_train.values.flatten())
 
