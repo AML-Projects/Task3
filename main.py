@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, Randomize
 from sklearn.preprocessing import RobustScaler
 
 
-def get_data(data, skip_first=0, features='111', folder=''):
+def get_data(data, skip_first=0, features='1111', folder='biosppy'):
     """
 
     :param data: train / test
@@ -44,7 +44,7 @@ def get_data(data, skip_first=0, features='111', folder=''):
                        "st_segment_mean", "st_segment_var", "qrs_duration_mean", "qrs_duration_var",
                        "q_peak_amp_mean", "q_peak_amp_var"]  # third batch
 
-    # feature_names_3 = [x + '_filtered' for x in feature_names_3]
+    feature_names_4 = ["frequency_domain"]
 
     if features[0] == '1':
         feature_names.extend(feature_names_1)
@@ -52,15 +52,19 @@ def get_data(data, skip_first=0, features='111', folder=''):
         feature_names.extend(feature_names_2)
     if features[2] == '1':
         feature_names.extend(feature_names_3)
+    if features[3] == '1':
+        feature_names.extend(feature_names_4)
+
+    # build the path
+    path_to_files = "./data/extracted_features/"
+    if folder != '':
+        path_to_files = path_to_files + folder + "/"
 
     for name in feature_names:
-        path_to_files = "./data/extracted_features/"
-        if folder != '':
-            path_to_files = path_to_files + folder + "/"
-        if skip_first == 0:
+        if skip_first == 0 or name == "frequency_domain":
             x_feature = pd.read_csv(path_to_files + "x_" + data + "_" + name + ".csv", index_col=0)
         else:
-            x_feature = pd.read_csv(path_to_files + "/x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv", index_col=0)
+            x_feature = pd.read_csv(path_to_files + "x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv", index_col=0)
         feature_list.append(x_feature)
 
     x_data = pd.concat(feature_list, axis=1)
@@ -94,8 +98,11 @@ if __name__ == "__main__":
     Logcreator.info("Environment: %s" % Configuration.get('environment.name'))
 
     search = args.hyperparamsearch
-    x_train_data = get_data("train", skip_first=300, features='111')
-    x_test_handin = get_data("test", skip_first=300, features='111')
+
+    selected_features = '1111'
+    Logcreator.info("selected features:", selected_features)
+    x_train_data = get_data("train", skip_first=300, features=selected_features)
+    x_test_handin = get_data("test", skip_first=300, features=selected_features)
 
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
@@ -141,6 +148,7 @@ if __name__ == "__main__":
         'colsample_bylevel': 0.64,
         'gamma': 1,
 
+        'nthread': -1,
         'random_state': 41
     }
 
