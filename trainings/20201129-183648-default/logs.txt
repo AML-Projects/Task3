@@ -1,0 +1,17 @@
+r_peak_detection biosppy
+20201129-183648	Task 03 - ECG Desease classification
+20201129-183648	Info: Environment: describe the run
+20201129-183648	Info: selected features: 1111
+20201129-183651	Info: x-train (5117, 1765)
+20201129-183652	Info: XGBClassifier(base_score=None, booster=None,
+              colsample_bylevel=0.30000000000000004, colsample_bynode=None,
+              colsample_bytree=0.96, gamma=0, gpu_id=None,
+              importance_type='gain', interaction_constraints=None,
+              learning_rate=0.11067074200289896, max_delta_step=None,
+              max_depth=19, min_child_weight=2, missing=nan,
+              monotone_constraints=None, n_estimators=433, n_jobs=None,
+              nthread=-1, num_parallel_tree=None, objective='multi:softmax',
+              random_state=41, reg_alpha=1, reg_lambda=4, scale_pos_weight=None,
+              subsample=0.71, tree_method=None, validate_parameters=None,
+              verbosity=None)
+20201129-184502	Info: Finished processing in 493 [s].

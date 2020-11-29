@@ -1,0 +1,7 @@
+{
+    "environment": {
+        "name" : "describe the run",
+        "output_path": "trainings",
+        "log_file" : "logs.txt"
+    }
+}

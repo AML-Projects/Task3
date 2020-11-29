@@ -1,0 +1,16 @@
+r_peak_detection wfdb
+20201129-183613	Task 03 - ECG Desease classification
+20201129-183613	Info: Environment: describe the run
+20201129-183613	Info: selected features: 1110
+20201129-183616	Info: x-train (5117, 1690)
+20201129-183617	Info: XGBClassifier(base_score=None, booster=None, colsample_bylevel=0.87,
+              colsample_bynode=None, colsample_bytree=0.49, gamma=0,
+              gpu_id=None, importance_type='gain', interaction_constraints=None,
+              learning_rate=0.025207219867508162, max_delta_step=None,
+              max_depth=19, min_child_weight=4, missing=nan,
+              monotone_constraints=None, n_estimators=385, n_jobs=None,
+              nthread=-1, num_parallel_tree=None, objective='multi:softmax',
+              random_state=41, reg_alpha=1, reg_lambda=2, scale_pos_weight=None,
+              subsample=0.78, tree_method=None, validate_parameters=None,
+              verbosity=None)
+20201129-185002	Info: Finished processing in 829 [s].
