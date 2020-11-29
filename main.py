@@ -95,6 +95,12 @@ if __name__ == "__main__":
     parser.add_argument('--cvscore', default=False, type=argumenthelper.boolean_string,
                         help="If True does perform cross validation on the training set.")
 
+    r_peak_detection = "biosppy"  # biosppy, wfdb
+    select_best_k = False
+    selected_features = '1111'
+    skip_first = 300
+
+    # ---------------------------------------------------------------------------------------------------------------------
     args = argumenthelper.parse_args(parser)
     start = time.time()
 
@@ -106,10 +112,9 @@ if __name__ == "__main__":
 
     search = args.hyperparamsearch
 
-    selected_features = '1111'
     Logcreator.info("selected features:", selected_features)
-    x_train_list = get_data("train", skip_first=300, features=selected_features)
-    x_test_list = get_data("test", skip_first=300, features=selected_features)
+    x_train_list = get_data("train", skip_first=skip_first, features=selected_features, folder=r_peak_detection)
+    x_test_list = get_data("test", skip_first=skip_first, features=selected_features, folder=r_peak_detection)
 
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
@@ -139,7 +144,6 @@ if __name__ == "__main__":
         y_train = y_train_data
         x_test_split_list = x_test_list
 
-    select_best_k = True
     if select_best_k:
         Logcreator.info("Selecting best k features")
 
@@ -184,24 +188,45 @@ if __name__ == "__main__":
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
+    parameter_biosppy = {
+        'colsample_bylevel': 0.30000000000000004,
+        'colsample_bytree': 0.96,
+        'gamma': 0,
+        'learning_rate': 0.11067074200289896,
+        'max_depth': 19,
+        'min_child_weight': 2,
+        'n_estimators': 433,
+        'reg_alpha': 1,
+        'reg_lambda': 4,
+        'subsample': 0.71
+    }
+
+    parameter_wfdb = {
+        'colsample_bylevel': 0.87,
+        'colsample_bytree': 0.49,
+        'gamma': 0,
+        'learning_rate': 0.025207219867508162,
+        'max_depth': 19,
+        'min_child_weight': 4,
+        'n_estimators': 385,
+        'reg_alpha': 1,
+        'reg_lambda': 2,
+        'subsample': 0.78
+    }
+
     parameter = {
         'objective': 'multi:softmax',
-        'n_estimators': 897,
-        'max_depth': 20,
-
-        'min_child_weight': 3,
-        'reg_lambda': 0,
-        'subsample': 0.74,
-        'colsample_bytree': 0.49,
-        'colsample_bylevel': 0.64,
-        'gamma': 1,
-
         'nthread': -1,
         'random_state': 41
     }
 
-    model = xgboost.XGBClassifier(**parameter)
-    # model = RandomForestClassifier(n_estimators=500, random_state=41)
+    if r_peak_detection == 'biosppy':
+        parameter.update(parameter_biosppy)
+    else:
+        parameter.update(parameter_wfdb)
+
+    model = xgboost.XGBClassifier(**parameter, n_jobs=-1)
+    # model = RandomForestClassifier(n_estimators=100, random_state=41)
 
     Logcreator.info(model)
 
