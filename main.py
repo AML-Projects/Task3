@@ -12,6 +12,7 @@ import xgboost as xgboost
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectKBest
 
 from helpers import argumenthelper
 from logcreator.logcreator import Logcreator
@@ -65,9 +66,15 @@ def get_data(data, skip_first=0, features='1111', folder='biosppy'):
             x_feature = pd.read_csv(path_to_files + "x_" + data + "_" + name + ".csv", index_col=0)
         else:
             x_feature = pd.read_csv(path_to_files + "x_" + data + "_" + name + "_skip_first_" + str(skip_first) + ".csv", index_col=0)
-        feature_list.append(x_feature)
 
-    x_data = pd.concat(feature_list, axis=1)
+        # fill nan and inf
+        x_feature = x_feature.replace([np.inf, -np.inf], np.nan)
+        x_feature = x_feature.fillna(0)
+
+        feature_list.append(pd.DataFrame(x_feature))
+
+    # x_data = pd.concat(feature_list, axis=1)
+    x_data = feature_list
 
     return x_data
 
@@ -85,7 +92,7 @@ if __name__ == "__main__":
                         help="If set to true, whole trainingset used for training")
     parser.add_argument('--hyperparamsearch', default=False, type=argumenthelper.boolean_string,
                         help="If set to true, will perform hyper parameter search, else it will only fit the given model")
-    parser.add_argument('--cvscore', default=True, type=argumenthelper.boolean_string,
+    parser.add_argument('--cvscore', default=False, type=argumenthelper.boolean_string,
                         help="If True does perform cross validation on the training set.")
 
     args = argumenthelper.parse_args(parser)
@@ -101,36 +108,77 @@ if __name__ == "__main__":
 
     selected_features = '1111'
     Logcreator.info("selected features:", selected_features)
-    x_train_data = get_data("train", skip_first=300, features=selected_features)
-    x_test_handin = get_data("test", skip_first=300, features=selected_features)
+    x_train_list = get_data("train", skip_first=300, features=selected_features)
+    x_test_list = get_data("test", skip_first=300, features=selected_features)
 
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
     pd.set_option('display.max_colwidth', None)
 
-    handin_idx = x_test_handin.index
+    y_train_data = pd.read_csv("./data/y_train.csv", index_col=0).values.ravel()
 
-    # fill NaN with zero
-    x_train_data = x_train_data.fillna(0)
-    x_test_handin = x_test_handin.fillna(0)
-
-    x_train_data[x_train_data == np.inf] = 0
-    x_test_handin[x_test_handin == np.inf] = 0
-    x_train_data[x_train_data == -np.inf] = 0
-    x_test_handin[x_test_handin == -np.inf] = 0
-
-    y_train_data = pd.read_csv("./data/y_train.csv", index_col=0)
-
+    x_train_split_list = []
+    x_test_split_list = []
     if not args.handin:
-        x_train, x_test, y_train, y_test = train_test_split(x_train_data, y_train_data,
-                                                            test_size=0.2,
-                                                            stratify=y_train_data,
-                                                            random_state=41)
+        for l in x_train_list:
+            x_train, x_test = train_test_split(l,
+                                               test_size=0.2,
+                                               stratify=y_train_data,
+                                               random_state=41)
+            x_train_split_list.append(x_train)
+            x_test_split_list.append(x_test)
+
+        y_train, y_test = train_test_split(y_train_data,
+                                           test_size=0.2,
+                                           stratify=y_train_data,
+                                           random_state=41)
+
     else:
-        x_train = x_train_data
+        x_train_split_list = x_train_list
         y_train = y_train_data
-        x_test = x_test_handin
+        x_test_split_list = x_test_list
+
+    select_best_k = True
+    if select_best_k:
+        Logcreator.info("Selecting best k features")
+
+        x_train_feature_list = []
+        x_test_feature_list = []
+
+        for x_train_feature, x_test_feature in zip(x_train_split_list, x_test_split_list):
+            scaler = RobustScaler()
+            x_train_feature = scaler.fit_transform(x_train_feature)
+            x_test_feature = scaler.transform(x_test_feature)
+
+            if x_train_feature.shape[1] == 180:  # graph features
+                skb = SelectKBest(k=90)
+                x_train_feature = skb.fit_transform(x_train_feature, y=y_train)
+                x_test_feature = skb.transform(x_test_feature)
+            elif x_train_feature.shape[1] == 75:  # frequency features
+                skb = SelectKBest(k=40)
+                x_train_feature = skb.fit_transform(x_train_feature, y=y_train)
+                x_test_feature = skb.transform(x_test_feature)
+            elif x_train_feature.shape[1] == 52:  # hrv features
+                skb = SelectKBest(k=40)
+                x_train_feature = skb.fit_transform(x_train_feature, y=y_train)
+                x_test_feature = skb.transform(x_test_feature)
+
+            x_train_feature_list.append(pd.DataFrame(x_train_feature))
+            x_test_feature_list.append(pd.DataFrame(x_test_feature))
+
+        x_train = pd.concat(x_train_feature_list, axis=1)
+        x_test = pd.concat(x_test_feature_list, axis=1)
+    else:
+        x_train = pd.concat(x_train_split_list, axis=1)
+        x_test = pd.concat(x_test_split_list, axis=1)
+
+    Logcreator.info("x-train", x_train.shape)
+
+    handin_idx = x_test.index
+
+    x_train = x_train.replace([np.inf, -np.inf], np.nan).fillna(0)
+    x_test = x_test.replace([np.inf, -np.inf], np.nan).fillna(0)
 
     scaler = RobustScaler()
     x_train = scaler.fit_transform(x_train)
@@ -160,9 +208,9 @@ if __name__ == "__main__":
     if args.cvscore:
         Logcreator.info("Running CV on the training set")
         sk = StratifiedKFold(shuffle=True, n_splits=10, random_state=41)
-        Logcreator.info("CV-score", cross_val_score(model, x_train, y_train.values.flatten(), cv=sk, scoring='f1_micro', n_jobs=-1).mean())
+        Logcreator.info("CV-score", cross_val_score(model, x_train, y_train, cv=sk, scoring='f1_micro', n_jobs=-1).mean())
 
-    model.fit(x_train, y_train.values.flatten())
+    model.fit(x_train, y_train)
 
     # ---------------------------------------------------------------------------------------------------------
     # results
