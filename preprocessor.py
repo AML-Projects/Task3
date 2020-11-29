@@ -478,7 +478,7 @@ if __name__ == '__main__':
 
     extracted_feature_names = ["frequency_domain"]
     extract_features(x_train, "x_train", extract_frequency_domain, extracted_feature_names, skip_first=0, skip_last=0)
-    extract_features(x_train, "x_test", extract_frequency_domain, extracted_feature_names, skip_first=0, skip_last=0)
+    extract_features(x_test, "x_test", extract_frequency_domain, extracted_feature_names, skip_first=0, skip_last=0)
 
     extracted_feature_names = ["nni_mean", "nni_var", "biosppy_hrv"]
     extract_features(x_train, "x_train", extract_hrv_and_nni, extracted_feature_names,
