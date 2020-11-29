@@ -336,7 +336,36 @@ def exctract_qrspt(sample):
            qrs_duration_mean, qrs_duration_var, q_peak_amp_mean, q_peak_amp_var
 
 
-def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=600):
+def extract_frequency_domain(sample):
+    from scipy.fft import rfft, rfftfreq, dct
+    # fixed number of sample points
+    N = 300
+    # sample spacing
+    T = 1.0 / SAMPLE_RATE
+    # Flourier transformation
+    y_rfft = rfft(sample, N)
+    # x_frequency = rfftfreq(N, T)
+
+    x_frequency = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
+    y_rfft = 2.0 / N * np.abs(y_rfft[0:N // 2])
+
+    # to int -> filters the peaks a little bit and saves space
+    y_rfft = y_rfft.astype(int)
+
+    # cut off frequencies above 75Hz
+    x_frequency = x_frequency[:len(x_frequency) // 2]
+    y_rfft = y_rfft[:len(y_rfft) // 2]
+
+    """
+    plt.vlines(x_frequency, np.zeros(len(y_rfft)), abs(y_rfft))
+    plt.grid()
+    plt.show()
+    """
+
+    return [y_rfft]
+
+
+def extract_features(x, x_name, extract_function, extracted_column_names, skip_first=0, skip_last=300):
     """
     General function to extract features and save them individually to a file.
 
@@ -374,7 +403,10 @@ def extract_features(x, x_name, extract_function, extracted_column_names, skip_f
         sample = sample.values
 
         # skip first and last n data points
-        sample = sample[skip_first:-skip_last]
+        if skip_last == 0:
+            sample = sample[skip_first:]
+        else:
+            sample = sample[skip_first:-skip_last]
 
         extracted_values = extract_function(sample)
         feature_list.append(extracted_values)
@@ -443,6 +475,11 @@ if __name__ == '__main__':
 
     # ----------------------------------------------------------------
     # extract features
+
+    extracted_feature_names = ["frequency_domain"]
+    extract_features(x_train, "x_train", extract_frequency_domain, extracted_feature_names, skip_first=0, skip_last=0)
+    extract_features(x_train, "x_test", extract_frequency_domain, extracted_feature_names, skip_first=0, skip_last=0)
+
     extracted_feature_names = ["nni_mean", "nni_var", "biosppy_hrv"]
     extract_features(x_train, "x_train", extract_hrv_and_nni, extracted_feature_names,
                      skip_first=skip_first,
