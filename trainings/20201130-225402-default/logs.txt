@@ -1,0 +1,17 @@
+20201130-225402	Task 03 - ECG Desease classification
+20201130-225402	Info: Environment: describe the run
+20201130-225402	Info: selected features: 1111
+20201130-225407	Info: x-train (5117, 1765)
+20201130-225407	Info: XGBClassifier(base_score=None, booster=None, colsample_bylevel=0.6,
+              colsample_bynode=None, colsample_bytree=0.6, gamma=1, gpu_id=None,
+              importance_type='gain', interaction_constraints=None,
+              learning_rate=0.04631845123809068, max_delta_step=None,
+              max_depth=9, min_child_weight=4, missing=nan,
+              monotone_constraints=None, n_estimators=549, n_jobs=-1,
+              nthread=-1, num_parallel_tree=None, objective='multi:softmax',
+              random_state=41, reg_alpha=1, reg_lambda=1, scale_pos_weight=None,
+              subsample=0.8300000000000001, tree_method=None,
+              validate_parameters=None, verbosity=None)
+20201130-225407	Info: Running CV on the training set
+20201130-231344	Info: CV-score 0.8331041309931507
+20201130-232723	Info: Finished processing in 2000 [s].

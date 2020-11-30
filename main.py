@@ -95,7 +95,7 @@ if __name__ == "__main__":
     parser.add_argument('--cvscore', default=False, type=argumenthelper.boolean_string,
                         help="If True does perform cross validation on the training set.")
 
-    r_peak_detection = "biosppy"  # biosppy, wfdb
+    r_peak_detection = "wfdb"  # biosppy, wfdb
     select_best_k = False
     selected_features = '1111'
     skip_first = 300
@@ -202,16 +202,16 @@ if __name__ == "__main__":
     }
 
     parameter_wfdb = {
-        'colsample_bylevel': 0.87,
-        'colsample_bytree': 0.49,
-        'gamma': 0,
-        'learning_rate': 0.025207219867508162,
-        'max_depth': 19,
-        'min_child_weight': 4,
-        'n_estimators': 385,
+        'n_estimators': 549,
+        'max_depth': 9,
         'reg_alpha': 1,
-        'reg_lambda': 2,
-        'subsample': 0.78
+        'reg_lambda': 1,
+        'min_child_weight': 4,
+        'gamma': 1,
+        'learning_rate': 0.04631845123809068,
+        'subsample': 0.8300000000000001,
+        'colsample_bytree': 0.6,
+        'colsample_bylevel': 0.6
     }
 
     parameter = {
