@@ -202,16 +202,29 @@ if __name__ == "__main__":
     }
 
     parameter_wfdb = {
-        'n_estimators': 549,
-        'max_depth': 9,
-        'reg_alpha': 1,
-        'reg_lambda': 1,
+        'colsample_bylevel': 0.87,
+        'colsample_bytree': 0.49,
+        'gamma': 0,
+        'learning_rate': 0.025207219867508162,
+        'max_depth': 19,
         'min_child_weight': 4,
-        'gamma': 1,
-        'learning_rate': 0.04631845123809068,
-        'subsample': 0.8300000000000001,
-        'colsample_bytree': 0.6,
-        'colsample_bylevel': 0.6
+        'n_estimators': 385,
+        'reg_alpha': 1,
+        'reg_lambda': 2,
+        'subsample': 0.78
+    }
+
+    parameter_wfdb_fft = {
+        'colsample_bytree': 0.86,
+        'colsample_bylevel': 0.77,
+        'gamma': 0,
+        'learning_rate': 0.045854360044533464,
+        'max_depth': 16,
+        'min_child_weight': 4,
+        'n_estimators': 491,
+        'reg_alpha': 1,
+        'reg_lambda': 0,
+        'subsample': 0.88,
     }
 
     parameter = {
@@ -223,7 +236,7 @@ if __name__ == "__main__":
     if r_peak_detection == 'biosppy':
         parameter.update(parameter_biosppy)
     else:
-        parameter.update(parameter_wfdb)
+        parameter.update(parameter_wfdb_fft)
 
     model = xgboost.XGBClassifier(**parameter, n_jobs=-1)
     # model = RandomForestClassifier(n_estimators=100, random_state=41)
@@ -239,8 +252,10 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------------------------------------
     # results
+    y_pred_train = model.predict(x_train)
     y_pred_test = model.predict(x_test)
 
+    Logcreator.info("f1 score on train split", f1_score(y_true=y_train, y_pred=y_pred_train, average='micro'))
     if not args.handin:
         Logcreator.info("f1 score on test split", f1_score(y_true=y_test, y_pred=y_pred_test, average='micro'))
 
